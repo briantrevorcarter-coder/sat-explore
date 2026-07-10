@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAT Explore — Axiom-7</title>
+
+<!-- ── ANALYTICS (PostHog) ──
+     Paste your PostHog project key below to enable analytics.
+     Leave it '' and all tracking is a silent no-op. -->
+<script>
+  window.POSTHOG_KEY  = 'phc_o78ves5VLwLcz345hXgh4ARb3oA4bEe6xBGYY2MVNQsV';
+  window.POSTHOG_HOST = 'https://us.i.posthog.com';  // EU projects: 'https://eu.i.posthog.com'
+</script>
+<script>
+  if (window.POSTHOG_KEY) {
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init(window.POSTHOG_KEY, { api_host: window.POSTHOG_HOST, person_profiles: 'identified_only' });
+  }
+  // Safe wrapper used throughout the game — no-ops if analytics is disabled.
+  window.track = function (ev, props) {
+    try { if (window.posthog && window.POSTHOG_KEY) window.posthog.capture(ev, Object.assign({ app: 'sat-explore' }, props || {})); } catch (e) {}
+  };
+</script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1622,6 +1640,8 @@ function startGame() {
   // Ensure audio is running
   tryUnlockAudio();
 
+  track('game_started', { multiplayer: !!mp, mode: mp ? mp.mode : 'solo', cycle: cycle + 1 });
+
   // Cancel title canvas animation
   if (titleAnimFrame) { cancelAnimationFrame(titleAnimFrame); titleAnimFrame = null; }
 
@@ -1701,6 +1721,7 @@ function leaveRoom() {
 
 function nextRoom() {
   roomDone[currentRoom] = true;
+  track('room_completed', { room: currentRoom, domain: ROOM_DOMAINS[currentRoom], cycle: cycle + 1 });
   // A cleared level wipes the slate: strikes reset at each level boundary.
   if (currentRoom < 8 && levelOfRoom(currentRoom + 1) !== levelOfRoom(currentRoom)) strikes = 0;
   updateHUD();
@@ -1720,6 +1741,7 @@ function nextRoom() {
         nextCycleTexts[cycle],
         `ESCAPE CYCLE ${cycle + 2} — ${CYCLE_NAMES[cycle + 1]} TIER`,
         () => {
+          track('cycle_completed', { tier: CYCLE_NAMES[cycle], cycle: cycle + 1 });
           cycle++;
           roomDone.fill(false);
           strikes = 0;
@@ -1776,6 +1798,8 @@ function nextRoom() {
 
 function showCompletion() {
   mpSendProgress(true);
+  track('game_completed', { score, total: totalQ,
+    pct: totalQ > 0 ? Math.round(score / totalQ * 100) : 0, multiplayer: !!mp });
   document.getElementById('completion-screen').classList.add('show');
   document.getElementById('final-score').textContent = score;
   document.getElementById('final-total').textContent = totalQ;
@@ -2765,6 +2789,7 @@ function recordAnswer(correct) {
 // fresh question set. Everything you've already cleared stays cleared.
 function roomFailure() {
   const idx = currentRoom;
+  track('room_restarted', { room: idx, domain: ROOM_DOMAINS[idx], cycle: cycle + 1, missLimit: currentLimit });
   roomVariant[idx]++;      // rotate to the other question set for the retry
   strikes = 0;
   document.getElementById('challenge-overlay').classList.remove('show');
@@ -3658,6 +3683,9 @@ let mastery = {};
 try { mastery = JSON.parse(localStorage.getItem('axiom7_mastery') || '{}'); } catch (e) {}
 function saveMastery() { try { localStorage.setItem('axiom7_mastery', JSON.stringify(mastery)); } catch (e) {} }
 function markMastery(q, correct) {
+  // The richest signal: every question attempt, tagged by skill/domain/tier.
+  track('question_answered', { skill: q.skill, name: q.name, domain: q.domain,
+    tier: q.tier, cycle: cycle + 1, room: currentRoom, type: q.type, correct: !!correct });
   const key = q.skill + ':' + q.tier;
   if (correct) { if (mastery[key] !== true) { mastery[key] = true; saveMastery(); } }
   else if (mastery[key] === undefined) { mastery[key] = false; saveMastery(); }
@@ -4049,6 +4077,7 @@ document.getElementById('mp-mode-coop').addEventListener('click', () => {
 document.getElementById('mp-create').addEventListener('click', () => {
   const name = document.getElementById('mp-name').value.trim();
   if (!name) { mpError('ENTER A PILOT NAME FIRST.'); return; }
+  track('multiplayer_created', { mode: mpMode });
   const ws = mpConnect(() => mpSend({ t: 'create', name, mode: mpMode }));
   if (ws) mp = { ws };
 });
@@ -4057,6 +4086,7 @@ document.getElementById('mp-join').addEventListener('click', () => {
   const code = document.getElementById('mp-code').value.trim().toUpperCase();
   if (!name) { mpError('ENTER A PILOT NAME FIRST.'); return; }
   if (code.length !== 4) { mpError('MISSION CODES ARE 4 CHARACTERS.'); return; }
+  track('multiplayer_joined', { code });
   const ws = mpConnect(() => mpSend({ t: 'join', name, code }));
   if (ws) mp = { ws };
 });
