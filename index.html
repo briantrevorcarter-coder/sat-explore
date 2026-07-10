@@ -1,0 +1,4113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT Explore — Axiom-7</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a1a;
+  --bg2: #0f0f2a;
+  --bg3: #141430;
+  --blue: #00d4ff;
+  --blue-dim: #0099bb;
+  --amber: #ffaa00;
+  --green: #00ff88;
+  --red: #ff4466;
+  --text: #c8d8e8;
+  --text-dim: #7890a0;
+  --border: #1a3050;
+  --font-mono: 'Courier New', Courier, monospace;
+  --font-sans: 'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  background: #000;
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+}
+
+/* ── LOADING SCREEN ── */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 300;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-family: var(--font-mono);
+  padding: 32px;
+  transition: opacity .6s ease;
+}
+#loading-screen.fade-out { opacity: 0; pointer-events: none; }
+.loading-title {
+  font-size: .8rem;
+  color: #00ff44;
+  letter-spacing: .2em;
+  margin-bottom: 8px;
+}
+.loading-bar-wrap {
+  width: min(400px, 80vw);
+  height: 4px;
+  background: #0a1a0a;
+  border: 1px solid #003300;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #00ff44;
+  box-shadow: 0 0 8px #00ff44;
+  transition: width .12s linear;
+}
+.loading-log {
+  width: min(420px, 85vw);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: .72rem;
+  line-height: 1.6;
+}
+.loading-log-line {
+  color: #00bb33;
+  opacity: 0;
+  transition: opacity .2s;
+  white-space: nowrap;
+}
+.loading-log-line.ok   { color: #00ff88; }
+.loading-log-line.fail { color: #ff4466; }
+.loading-log-line.warn { color: #ffaa00; }
+.loading-log-line.vis  { opacity: 1; }
+
+/* ── INTRO SCREEN ── */
+#intro-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: transparent;
+  display: none; /* shown after loading */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  text-align: center;
+  padding: 32px;
+  opacity: 0;
+  transition: opacity .8s ease;
+}
+#intro-screen.visible { opacity: 1; }
+
+/* Title canvas (starfield + bg elements) */
+#title-canvas {
+  position: fixed; inset: 0; z-index: 190;
+  display: none;
+  pointer-events: none;
+}
+
+/* Title content layered above canvas */
+#title-content {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  width: 100%;
+}
+
+.intro-logo {
+  font-family: var(--font-mono);
+  font-size: clamp(2.2rem, 7vw, 4rem);
+  color: var(--blue);
+  text-shadow: 0 0 40px var(--blue), 0 0 80px rgba(0,212,255,.4), 0 0 120px rgba(0,212,255,.15);
+  letter-spacing: .3em;
+  animation: glow-pulse 3s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  padding: 0 .1em;
+}
+/* Scanning line over title */
+.intro-logo::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: rgba(0,212,255,.55);
+  box-shadow: 0 0 10px rgba(0,212,255,.8);
+  animation: title-scan 3.5s linear infinite;
+  top: 0;
+}
+@keyframes title-scan {
+  0%   { top: 0%;   opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes glow-pulse {
+  0%,100%{text-shadow:0 0 20px var(--blue),0 0 50px rgba(0,212,255,.35)}
+  50%{text-shadow:0 0 50px var(--blue),0 0 100px rgba(0,212,255,.55),0 0 160px rgba(0,212,255,.2)}
+}
+.intro-dash {
+  width: min(320px, 60vw); height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,.5), transparent);
+  margin: 14px 0;
+}
+.intro-tagline {
+  font-family: var(--font-mono);
+  font-size: clamp(.78rem, 2vw, 1rem);
+  color: #8aa8b8;
+  letter-spacing: .08em;
+  min-height: 1.6em;
+  max-width: 520px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+/* BEGIN MISSION button */
+.intro-begin-btn {
+  padding: 14px 44px;
+  border: 2px solid var(--blue);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--blue);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: .18em;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  animation: btn-border-pulse 2s ease-in-out infinite;
+  transition: background .25s, color .25s, box-shadow .25s;
+  margin-bottom: 14px;
+}
+.intro-begin-btn:hover {
+  background: var(--blue);
+  color: #000;
+  box-shadow: 0 0 30px rgba(0,212,255,.6);
+  animation: none;
+}
+@keyframes btn-border-pulse {
+  0%,100%{box-shadow:0 0 8px rgba(0,212,255,.4),inset 0 0 8px rgba(0,212,255,.05)}
+  50%{box-shadow:0 0 22px rgba(0,212,255,.7),inset 0 0 16px rgba(0,212,255,.12)}
+}
+.intro-controls-hint {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: #3a5a6a;
+  letter-spacing: .06em;
+  margin-bottom: 0;
+}
+.intro-corner-bl {
+  position: fixed; bottom: 18px; left: 22px;
+  font-family: var(--font-mono); font-size: .65rem;
+  color: #1e3040; letter-spacing: .06em; z-index: 1;
+}
+.intro-corner-br {
+  position: fixed; bottom: 18px; right: 22px;
+  font-family: var(--font-mono); font-size: .65rem;
+  color: #1e3040; letter-spacing: .06em; z-index: 1;
+}
+/* Audio nudge */
+#audio-nudge {
+  position: fixed; bottom: 48px; left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 1.1rem;
+  color: #00d4ff; z-index: 220;
+  animation: nudge-blink 1.2s ease-in-out infinite;
+  pointer-events: none;
+  white-space: nowrap;
+  text-shadow: 0 0 20px rgba(0,212,255,0.8), 0 0 40px rgba(0,212,255,0.4);
+  letter-spacing: .08em;
+  padding: 12px 24px;
+  background: rgba(0,20,40,0.85);
+  border: 1px solid rgba(0,212,255,0.5);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(0,212,255,0.3);
+}
+@keyframes nudge-blink { 0%,100%{opacity:.6; box-shadow: 0 0 16px rgba(0,212,255,0.2)} 50%{opacity:1; box-shadow: 0 0 32px rgba(0,212,255,0.6)} }
+
+/* ── CANVAS LAYER ── */
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+
+/* ── GAME HUD ── */
+#game-hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: none;
+  pointer-events: none;
+}
+.hud-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(10,10,26,.85);
+  border-bottom: 1px solid rgba(0,212,255,.2);
+  backdrop-filter: blur(4px);
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: all;
+}
+.hud-logo { color: var(--blue); font-size: .85rem; letter-spacing: .12em; text-shadow: 0 0 8px var(--blue); }
+.hud-score { color: var(--green); }
+.hud-loc { color: var(--amber); }
+.hud-act { color: var(--text-dim); }
+#mute-btn {
+  background: rgba(0,212,255,.1);
+  border: 1px solid rgba(0,212,255,.3);
+  color: var(--blue);
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background .2s;
+}
+#mute-btn:hover { background: rgba(0,212,255,.2); }
+
+/* ── ENTER-ROOM PROMPT ── */
+#enter-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: none;
+  background: rgba(0,212,255,.15);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  padding: 10px 20px;
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  animation: prompt-pulse 1s ease-in-out infinite;
+  pointer-events: none;
+  white-space: nowrap;
+}
+@keyframes prompt-pulse {
+  0%,100%{box-shadow:0 0 8px rgba(0,212,255,.3)}
+  50%{box-shadow:0 0 20px rgba(0,212,255,.6)}
+}
+
+/* ── CHALLENGE OVERLAY ── */
+#challenge-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  background: rgba(0,0,0,.92);
+  backdrop-filter: blur(8px);
+  overflow-y: auto;
+  padding: 16px;
+}
+#challenge-overlay.show { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+
+#challenge-panel {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 8px;
+}
+
+.room-title {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--blue);
+  text-shadow: 0 0 10px var(--blue);
+  letter-spacing: .12em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.story {
+  font-size: .95rem;
+  line-height: 1.7;
+  color: var(--text);
+  font-style: italic;
+  border-left: 3px solid var(--blue-dim);
+  padding-left: 14px;
+  min-height: 48px;
+}
+.challenge-box {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.challenge-label { font-family: var(--font-mono); font-size: .7rem; color: var(--amber); letter-spacing: .1em; }
+.challenge-q { font-size: .92rem; line-height: 1.65; color: var(--text); }
+.challenge-q u { color: var(--blue); }
+.challenge-q em { color: var(--amber); font-style: normal; }
+.challenge-q strong { color: #fff; }
+.passage {
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: .875rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+.passage u { color: var(--blue); }
+.options { display: flex; flex-direction: column; gap: 8px; }
+.opt {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: .88rem;
+  line-height: 1.5;
+  transition: border-color .2s, background .2s;
+  text-align: left;
+  color: var(--text);
+}
+.opt:hover { border-color: var(--blue-dim); background: rgba(0,180,255,.07); }
+.opt.selected { border-color: var(--blue); background: rgba(0,212,255,.12); }
+.opt.correct { border-color: var(--green); background: rgba(0,255,136,.1); color: var(--green); }
+.opt.wrong { border-color: var(--red); background: rgba(255,68,102,.1); color: var(--red); }
+.opt-letter { font-family: var(--font-mono); font-size: .8rem; color: var(--blue); min-width: 18px; font-weight: bold; }
+.answer-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.answer-input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; color: var(--text); font-family: var(--font-mono);
+  font-size: 1rem; flex: 1; min-width: 120px; outline: none; transition: border-color .2s;
+}
+.answer-input:focus { border-color: var(--blue); }
+.answer-input.correct { border-color: var(--green); color: var(--green); }
+.answer-input.wrong { border-color: var(--red); color: var(--red); }
+.btn {
+  padding: 10px 22px; border: 1px solid var(--blue); border-radius: 6px;
+  background: transparent; color: var(--blue); font-family: var(--font-mono);
+  font-size: .85rem; cursor: pointer; letter-spacing: .05em;
+  transition: background .2s, box-shadow .2s, color .2s;
+}
+.btn:hover { background: rgba(0,212,255,.15); box-shadow: 0 0 12px rgba(0,212,255,.3); }
+.btn.primary { border-color: var(--green); color: var(--green); }
+.btn.primary:hover { background: rgba(0,255,136,.15); box-shadow: 0 0 12px rgba(0,255,136,.3); }
+.btn:disabled { opacity: .4; cursor: default; }
+.feedback { padding: 10px 14px; border-radius: 6px; font-size: .875rem; line-height: 1.5; display: none; }
+.feedback.show { display: block; }
+.feedback.good { border: 1px solid var(--green); background: rgba(0,255,136,.08); color: var(--green); }
+.feedback.bad { border: 1px solid var(--red); background: rgba(255,68,102,.08); color: var(--red); }
+.sub-progress { font-family: var(--font-mono); font-size: .7rem; color: var(--text-dim); }
+.chart-area { background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }
+.chart-title { font-family: var(--font-mono); font-size: .7rem; color: var(--amber); margin-bottom: 12px; }
+.bar-chart { display: flex; align-items: flex-end; gap: 10px; height: 120px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 40px; }
+.bar { width: 100%; border-radius: 3px 3px 0 0; transition: opacity .3s; }
+.bar.normal { background: var(--blue-dim); }
+.bar.anomaly { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.bar-val { font-size: .65rem; font-family: var(--font-mono); color: var(--text-dim); }
+.bar-lbl { font-size: .6rem; font-family: var(--font-mono); color: var(--text-dim); text-align: center; }
+
+/* ── COMPLETION SCREEN ── */
+#completion-screen {
+  position: fixed; inset: 0; z-index: 300;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 32px 16px;
+  text-align: center;
+  background: var(--bg);
+  overflow-y: auto;
+}
+#completion-screen.show { display: flex; }
+.complete-title { font-family: var(--font-mono); font-size: 1.8rem; color: var(--green); text-shadow: 0 0 20px var(--green); letter-spacing: .12em; }
+.score-big { font-family: var(--font-mono); font-size: 3rem; color: var(--blue); text-shadow: 0 0 20px var(--blue); }
+.skills-used { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; text-align: left; max-width: 480px; width: 100%; }
+.skills-used h3 { font-family: var(--font-mono); font-size: .8rem; color: var(--amber); margin-bottom: 10px; letter-spacing: .1em; }
+.skill-row { font-size: .875rem; color: var(--text); line-height: 1.7; }
+.skill-row::before { content: "▸ "; color: var(--blue); }
+
+/* ── TRANSITION ── */
+#transition {
+  position: fixed; inset: 0; z-index: 150;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .4s;
+}
+#transition.show { opacity: 1; pointer-events: all; }
+.trans-text { font-family: var(--font-mono); font-size: 1rem; color: var(--blue); max-width: 520px; text-align: center; line-height: 1.7; }
+.trans-sub { font-size: .8rem; color: var(--text-dim); font-family: var(--font-mono); }
+
+@media(max-width:520px) {
+  #challenge-panel { padding: 14px; }
+  .opt { padding: 8px 10px; font-size: .82rem; }
+  .complete-title { font-size: 1.3rem; }
+  .score-big { font-size: 2.2rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loading-title">INITIALIZING AXIOM-7 SYSTEMS...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar-fill" id="loading-bar"></div></div>
+  <div class="loading-log" id="loading-log"></div>
+</div>
+
+<!-- TITLE CANVAS (bg elements) -->
+<canvas id="title-canvas"></canvas>
+
+<!-- INTRO SCREEN -->
+<div id="intro-screen">
+  <div id="title-content">
+    <div class="intro-logo">SAT — EXPLORE</div>
+    <div class="intro-dash"></div>
+    <div class="intro-tagline" id="tagline"></div>
+    <button class="intro-begin-btn" id="start-btn">▶ BEGIN MISSION</button>
+    <button class="intro-begin-btn" id="mp-toggle-btn" style="font-size:.8rem;padding:10px 30px;animation:none;border-color:#8aa8b8;color:#8aa8b8;">👥 MULTIPLAYER</button>
+    <div class="intro-controls-hint">Use arrow keys or WASD to move &nbsp;·&nbsp; Press E to enter rooms &nbsp;·&nbsp; 3 errors restart the level with new questions</div>
+
+    <!-- MULTIPLAYER SETUP -->
+    <div id="mp-panel" style="display:none;margin-top:18px;width:min(420px,88vw);background:rgba(0,20,40,.85);border:1px solid rgba(0,212,255,.35);border-radius:10px;padding:18px;font-family:var(--font-mono);text-align:left;">
+      <div style="font-size:.7rem;color:var(--amber);letter-spacing:.1em;margin-bottom:8px;">CREW LINK — MULTIPLAYER</div>
+      <input type="text" id="mp-name" maxlength="14" placeholder="PILOT NAME" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);padding:9px 12px;font-size:.85rem;margin-bottom:10px;" />
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="btn" id="mp-mode-compete" style="flex:1;border-color:var(--amber);color:var(--amber);">🏁 COMPETE</button>
+        <button class="btn" id="mp-mode-coop" style="flex:1;opacity:.5;">🤝 CO-OP</button>
+      </div>
+      <div style="font-size:.65rem;color:var(--text-dim);line-height:1.5;margin-bottom:10px;" id="mp-mode-desc">COMPETE: everyone escapes their own Axiom-7 — first pilot to launch wins.</div>
+      <button class="btn primary" id="mp-create" style="width:100%;margin-bottom:12px;">CREATE MISSION</button>
+      <div style="border-top:1px solid var(--border);padding-top:12px;display:flex;gap:8px;">
+        <input type="text" id="mp-code" maxlength="4" placeholder="CODE" style="flex:1;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);padding:9px 12px;font-size:.85rem;text-transform:uppercase;" />
+        <button class="btn" id="mp-join">JOIN</button>
+      </div>
+      <div id="mp-error" style="color:var(--red);font-size:.68rem;margin-top:8px;display:none;"></div>
+    </div>
+
+    <!-- MULTIPLAYER LOBBY -->
+    <div id="mp-lobby" style="display:none;margin-top:18px;width:min(420px,88vw);background:rgba(0,20,40,.85);border:1px solid rgba(0,212,255,.35);border-radius:10px;padding:18px;font-family:var(--font-mono);text-align:center;">
+      <div style="font-size:.7rem;color:var(--amber);letter-spacing:.1em;">MISSION CODE — SHARE WITH YOUR CREW</div>
+      <div id="mp-lobby-code" style="font-size:2rem;color:var(--blue);letter-spacing:.4em;text-shadow:0 0 14px var(--blue);margin:8px 0;user-select:text;cursor:text;">····</div>
+      <button class="btn" id="mp-copy-code" style="font-size:.65rem;padding:5px 14px;margin-bottom:10px;">⧉ COPY CODE</button>
+      <div id="mp-lobby-mode" style="font-size:.68rem;color:var(--text-dim);margin-bottom:10px;"></div>
+      <div id="mp-lobby-players" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+      <button class="btn primary" id="mp-launch" style="width:100%;display:none;">🚀 LAUNCH FOR ALL</button>
+      <div id="mp-wait" style="font-size:.68rem;color:var(--text-dim);">Waiting for the host to launch…</div>
+    </div>
+  </div>
+  <div class="intro-corner-bl">SAT Reading · Writing · Math</div>
+  <div class="intro-corner-br">For High School Students</div>
+</div>
+
+<!-- AUDIO NUDGE -->
+<div id="audio-nudge" style="display:none">🔊 CLICK ANYWHERE TO BEGIN — ENABLE AUDIO</div>
+
+<!-- TITLE MUTE BUTTON -->
+<button id="title-mute-btn" style="display:none;position:fixed;top:14px;right:14px;z-index:250;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--blue);font-family:var(--font-mono);font-size:.7rem;padding:4px 10px;border-radius:4px;cursor:pointer;" onclick="setMuted(!muted); this.textContent=muted?'♪ UNMUTE':'♪ MUTE'">♪ MUTE</button>
+
+<!-- GAME CANVAS -->
+<canvas id="game-canvas"></canvas>
+
+<!-- GAME HUD -->
+<div id="game-hud">
+  <div class="hud-bar">
+    <span class="hud-logo">◈ AXIOM-7</span>
+    <span class="hud-act" id="hud-act">ACT I — AWAKENING</span>
+    <span class="hud-level" id="hud-level">LEVEL 1 — FOUNDATIONS</span>
+    <span class="hud-loc" id="hud-loc">CORRIDOR</span>
+    <span class="hud-strikes" id="hud-strikes" title="3 errors re-lock the level">🟢🟢🟢</span>
+    <span class="hud-score">SCORE: <span id="hud-score">0</span> / <span id="hud-total">0</span></span>
+    <button id="mute-btn">♪ MUTE</button>
+    <button id="skills-btn" onclick="toggleSkillMatrix()" style="background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--blue);font-family:var(--font-mono);font-size:.7rem;padding:4px 10px;border-radius:4px;cursor:pointer;">⌗ SKILLS</button>
+  </div>
+</div>
+
+<!-- ENTER ROOM PROMPT -->
+<div id="enter-prompt">[ E ] ENTER ROOM</div>
+
+<!-- CREW STATUS PANEL (multiplayer) -->
+<div id="crew-panel" style="display:none;position:fixed;top:52px;right:12px;z-index:60;background:rgba(10,10,26,.88);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:10px 14px;font-family:var(--font-mono);font-size:.68rem;min-width:190px;backdrop-filter:blur(4px);">
+  <div style="color:var(--amber);letter-spacing:.1em;margin-bottom:4px;" id="crew-title">CREW STATUS</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <span style="color:var(--text-dim);">JOIN CODE:</span>
+    <span id="crew-code" style="color:var(--blue);letter-spacing:.2em;font-size:.85rem;text-shadow:0 0 8px var(--blue);user-select:text;cursor:text;"></span>
+    <button id="crew-copy" title="Copy code" style="background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.35);color:var(--blue);font-family:var(--font-mono);font-size:.6rem;padding:2px 7px;border-radius:4px;cursor:pointer;">⧉</button>
+  </div>
+  <div id="crew-list" style="display:flex;flex-direction:column;gap:4px;"></div>
+</div>
+
+<!-- CHALLENGE OVERLAY -->
+<div id="challenge-overlay">
+  <div id="challenge-panel"></div>
+</div>
+
+<!-- COMPLETION SCREEN -->
+<div id="completion-screen">
+  <div class="complete-title">◈ MISSION COMPLETE ◈</div>
+  <div style="font-family:var(--font-mono);font-size:.9rem;color:var(--text-dim)">Dr. Reyes escapes on the emergency pod. The data is safe. The truth will be known.</div>
+  <div>
+    <div style="font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim);margin-bottom:4px">FINAL SCORE</div>
+    <div class="score-big"><span id="final-score">0</span> / <span id="final-total">0</span></div>
+  </div>
+  <div id="grade-msg" style="font-family:var(--font-mono);font-size:.95rem;color:var(--green)"></div>
+  <div class="skills-used">
+    <h3>SAT SKILLS COVERED — ALL 3 TIERS</h3>
+    <div class="skill-row">Information &amp; Ideas (4 skills) — Cryo Bay</div>
+    <div class="skill-row">Craft &amp; Structure (3 skills) — Captain's Log</div>
+    <div class="skill-row">Expression of Ideas (2 skills) — Airlock</div>
+    <div class="skill-row">Standard English Conventions (2 skills) — Communications</div>
+    <div class="skill-row">Algebra (10 skills) — Reactor Room</div>
+    <div class="skill-row">Advanced Math (10 skills) — AI Terminal</div>
+    <div class="skill-row">Problem-Solving &amp; Data Analysis (9 skills) — Data Lab</div>
+    <div class="skill-row">Geometry &amp; Trigonometry (8 skills) — Navigation</div>
+  </div>
+  <button class="btn" onclick="toggleSkillMatrix()">⌗ VIEW SKILL MATRIX</button>
+  <button class="btn primary" onclick="restartGame()" style="font-size:.9rem;padding:12px 28px">⟳ PLAY AGAIN</button>
+</div>
+
+<!-- TRANSITION -->
+<div id="transition">
+  <div class="trans-text" id="trans-text"></div>
+  <div class="trans-sub" id="trans-sub"></div>
+</div>
+
+<script src="bank-rw.js"></script>
+<script src="bank-alg.js"></script>
+<script src="bank-adv.js"></script>
+<script src="bank-psda.js"></script>
+<script src="bank-geo.js"></script>
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════
+//  AUDIO ENGINE
+// ══════════════════════════════════════════════════════════════
+let audioCtx = null;
+let masterGain = null;
+let ambientNodes = [];
+let ambientStarted = false;
+let muted = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.4;
+  masterGain.connect(audioCtx.destination);
+}
+
+function setMuted(val) {
+  muted = val;
+  if (masterGain) masterGain.gain.value = muted ? 0 : 0.4;
+  document.getElementById('mute-btn').textContent = muted ? '♪ UNMUTE' : '♪ MUTE';
+}
+
+function stopNodes(nodes) {
+  nodes.forEach(n => { try { n.stop(); } catch(e){} });
+  nodes.length = 0;
+}
+
+// Build a reverb-like convolver for atmosphere
+function makeReverb(duration=2, decay=2) {
+  const len = audioCtx.sampleRate * duration;
+  const buf = audioCtx.createBuffer(2, len, audioCtx.sampleRate);
+  for (let c=0;c<2;c++) {
+    const d = buf.getChannelData(c);
+    for (let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, decay);
+  }
+  const conv = audioCtx.createConvolver();
+  conv.buffer = buf;
+  return conv;
+}
+
+// ── CONTINUOUS EERIE AMBIENT MUSIC ──
+// Plays from first user gesture through entire game — no transitions
+function startAmbientMusic() {
+  if (ambientStarted) return;
+  if (!audioCtx) return;
+  ambientStarted = true;
+
+  const busGain = audioCtx.createGain();
+  busGain.gain.value = 0;
+  busGain.connect(masterGain);
+  ambientNodes.push(busGain);
+
+  const reverb = makeReverb(4, 2.0);
+  reverb.connect(busGain);
+
+  // Deep sub drones — anchor the eerie foundation
+  const droneFreqs = [36.7, 55, 73.4];
+  droneFreqs.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = f;
+    // Slow wobble per drone
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 0.04 + i * 0.02;
+    const lfoG = audioCtx.createGain();
+    lfoG.gain.value = f * 0.012;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    const g = audioCtx.createGain();
+    g.gain.value = 0.18;
+    osc.connect(g); g.connect(reverb); g.connect(busGain);
+    osc.start(); lfo.start();
+    ambientNodes.push(osc, lfo, lfoG, g);
+  });
+
+  // Floating pad chord — cold, sparse, unresolved
+  // Phrygian feel: E, F, A, B at various octaves
+  const padFreqs = [82.41, 87.31, 110, 146.83, 164.81, 174.61];
+  padFreqs.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = f;
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 0.05 + i * 0.018;
+    const lfoG = audioCtx.createGain();
+    lfoG.gain.value = 0.7;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+    const g = audioCtx.createGain();
+    g.gain.value = 0.055;
+    osc.connect(g); g.connect(reverb);
+    osc.start(); lfo.start();
+    ambientNodes.push(osc, lfo, lfoG, g);
+  });
+
+  // High sparse drifting melody — ghostly single notes that fade in and out
+  function scheduleMelody() {
+    if (!ambientStarted || muted) return;
+    // Minor/Phrygian scale tones — eerie, not upbeat
+    const notes = [329.63, 349.23, 392, 415.30, 440, 392, 349.23, 293.66, 261.63];
+    const note = notes[Math.floor(Math.random() * notes.length)];
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = note;
+    const env = audioCtx.createGain();
+    env.gain.value = 0;
+    const now = audioCtx.currentTime;
+    const dur = 4 + Math.random() * 4;
+    env.gain.linearRampToValueAtTime(0.045, now + 1.2);
+    env.gain.linearRampToValueAtTime(0.03, now + dur * 0.6);
+    env.gain.linearRampToValueAtTime(0, now + dur);
+    osc.connect(env); env.connect(reverb); env.connect(busGain);
+    osc.start(now); osc.stop(now + dur + 0.1);
+    const nextDelay = 5000 + Math.random() * 9000;
+    setTimeout(scheduleMelody, nextDelay);
+  }
+
+  // Slow texture noise layer — cold hiss like a distant air recycler
+  (function addNoiseLayer() {
+    const bufSize = audioCtx.sampleRate * 3;
+    const nBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const nd = nBuf.getChannelData(0);
+    for (let i=0;i<bufSize;i++) nd[i] = Math.random()*2-1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = nBuf; src.loop = true;
+    const flt = audioCtx.createBiquadFilter();
+    flt.type = 'bandpass'; flt.frequency.value = 200; flt.Q.value = 0.3;
+    const ng = audioCtx.createGain(); ng.gain.value = 0.018;
+    src.connect(flt); flt.connect(ng); ng.connect(busGain);
+    src.start();
+    ambientNodes.push(src, flt, ng);
+  })();
+
+  const now = audioCtx.currentTime;
+  busGain.gain.linearRampToValueAtTime(1, now + 3);
+  setTimeout(scheduleMelody, 5000);
+}
+
+function stopAmbientMusic(cb) {
+  if (!audioCtx) { if(cb) cb(); return; }
+  ambientStarted = false;
+  const bus = ambientNodes[0];
+  if (bus) {
+    const now = audioCtx.currentTime;
+    bus.gain.setValueAtTime(bus.gain.value, now);
+    bus.gain.linearRampToValueAtTime(0, now + 1);
+    setTimeout(() => { stopNodes(ambientNodes); if(cb) cb(); }, 1100);
+  } else {
+    stopNodes(ambientNodes); if(cb) cb();
+  }
+}
+
+// No-op stubs kept for call-site compatibility — ambient plays continuously
+function startExplorationMusic() { startAmbientMusic(); }
+function stopExplorationMusic(cb) { if(cb) cb(); }
+function startChallengeMusic() {}
+function stopChallengeMusic(cb) { if(cb) cb(); }
+function transitionToExploration() {}
+function transitionToChallenge() {}
+
+// ── SHORT SOUNDS ──
+function playSuccess() {
+  if (!audioCtx || muted) return;
+  const notes = [523.25, 659.25, 783.99];
+  notes.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = f;
+    const env = audioCtx.createGain();
+    const t = audioCtx.currentTime + i * 0.15;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.3, t + 0.05);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    osc.connect(env); env.connect(masterGain);
+    osc.start(t); osc.stop(t + 0.6);
+  });
+}
+
+function playFailure() {
+  if (!audioCtx || muted) return;
+  const notes = [220, 196, 174.61];
+  notes.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = f;
+    const env = audioCtx.createGain();
+    const t = audioCtx.currentTime + i * 0.12;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.2, t + 0.03);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    osc.connect(env); env.connect(masterGain);
+    osc.start(t); osc.stop(t + 0.5);
+  });
+}
+
+function playVictory() {
+  if (!audioCtx || muted) return;
+  const melody = [261.63,329.63,392,523.25,659.25,783.99,1046.5];
+  melody.forEach((f, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = f;
+    const env = audioCtx.createGain();
+    const t = audioCtx.currentTime + i * 0.18;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.25, t + 0.05);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+    osc.connect(env); env.connect(masterGain);
+    osc.start(t); osc.stop(t + 0.9);
+  });
+}
+
+function playEnterRoom() {
+  if (!audioCtx || muted) return;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+  osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.3);
+  const env = audioCtx.createGain();
+  env.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.connect(env); env.connect(masterGain);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════════════════════════
+let score = 0;
+let totalQ = 0;
+let currentRoom = -1;
+let roomDone = new Array(9).fill(false);
+let challengeActive = false;
+let gameStarted = false;
+let nearRoom = -1;
+
+// ── DIFFICULTY LEVELS ──
+// Three wrong answers within a level re-locks its rooms and deals a
+// fresh variant of every question in that level.
+const MAX_STRIKES = 3;
+// Decks are strike zones: 3 wrong answers within a deck restart that deck.
+// Difficulty now comes from the CYCLE (Foundation → Intermediate → Advanced runs).
+const DIFF_LEVELS = [
+  { name: 'DECK 1',  rooms: [0, 1] },
+  { name: 'DECK 2', rooms: [2, 3, 4] },
+  { name: 'DECK 3',     rooms: [5, 6, 7] },
+  { name: 'DECK 4 — LAUNCH',   rooms: [8] },
+];
+const CYCLE_NAMES = ['FOUNDATION', 'INTERMEDIATE', 'ADVANCED'];
+let cycle = 0; // escape attempt #: 0=Foundation, 1=Intermediate, 2=Advanced
+let roomVariant = new Array(9).fill(0); // per-room question-set rotation (A/B)
+let currentLimit = 3;                   // misses allowed before THIS room restarts
+let strikes = 0;
+let levelVariant = [0, 0, 0, 0]; // which question set each level is currently on
+
+function levelOfRoom(idx) { return DIFF_LEVELS.findIndex(L => L.rooms.includes(idx)); }
+function variantFor(roomIdx) { return levelVariant[levelOfRoom(roomIdx)] % 3; }
+
+// ── MULTIPLAYER STATE (null when playing solo) ──
+let mp = null;   // { ws, code, mode:'compete'|'coop', me, host, players:[], started }
+
+const ROOM_NAMES = [
+  'Cryo Bay','Reactor Room','Communications',
+  'Data Lab',"Captain's Log",'AI Terminal',
+  'Navigation','Airlock','Launch'
+];
+const ACT_LABELS = {0:'ACT I — AWAKENING', 3:'ACT II — DISCOVERY', 6:'ACT III — ESCAPE'};
+
+// ══════════════════════════════════════════════════════════════
+//  CANVAS & RENDERING
+// ══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+let W = 0, H = 0;
+let camX = 0, camY = 0;
+let animFrame = null;
+let lastTime = 0;
+
+// Stars
+const STAR_COUNT = 200;
+const stars = [];
+for (let i=0;i<STAR_COUNT;i++) {
+  stars.push({
+    x: Math.random(),
+    y: Math.random(),
+    size: Math.random() * 2 + 0.3,
+    brightness: Math.random() * 0.7 + 0.3,
+    layer: Math.random() // parallax layer
+  });
+}
+
+// Flicker state
+const flickerTimers = {};
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAP LAYOUT
+// ══════════════════════════════════════════════════════════════
+// Station grid: 3 acts, corridors connecting rooms
+// Map is ~2400x900 world coords. Camera follows player.
+
+const MAP_W = 2600;
+const MAP_H = 900;
+
+// Corridors (rects): {x,y,w,h}
+const corridors = [
+  // Main horizontal corridor
+  {x:120, y:390, w:2360, h:120},
+  // Act 1 vertical stubs
+  {x:200, y:250, w:80, h:170},   // Cryo Bay
+  {x:500, y:250, w:80, h:170},   // Reactor
+  {x:800, y:250, w:80, h:170},   // Comms
+  // Act 2 vertical stubs
+  {x:1100, y:250, w:80, h:170},  // Data Lab
+  {x:1380, y:250, w:80, h:170},  // Captain's Log
+  {x:1660, y:250, w:80, h:170},  // AI Terminal
+  // Act 3 vertical stubs
+  {x:1940, y:250, w:80, h:170},  // Navigation
+  {x:2160, y:250, w:80, h:170},  // Airlock
+  {x:2400, y:250, w:80, h:170},  // Launch
+];
+
+// Rooms: {x,y,w,h, idx, name, act}
+const rooms = [
+  // Act 1
+  {x:130, y:100, w:220, h:160, idx:0, name:'CRYO BAY',      act:0},
+  {x:430, y:100, w:220, h:160, idx:1, name:'REACTOR ROOM',  act:0},
+  {x:730, y:100, w:220, h:160, idx:2, name:'COMMS',         act:0},
+  // Act 2
+  {x:1030,y:100, w:220, h:160, idx:3, name:'DATA LAB',      act:1},
+  {x:1310,y:100, w:220, h:160, idx:4, name:"CAPT'S LOG",    act:1},
+  {x:1590,y:100, w:220, h:160, idx:5, name:'AI TERMINAL',   act:1},
+  // Act 3
+  {x:1870,y:100, w:220, h:160, idx:6, name:'NAVIGATION',    act:2},
+  {x:2090,y:100, w:220, h:160, idx:7, name:'AIRLOCK',       act:2},
+  {x:2330,y:100, w:220, h:160, idx:8, name:'LAUNCH BAY',    act:2},
+];
+
+// Door positions (bottom center of each room = entrance on corridor)
+const doorPositions = rooms.map(r => ({
+  x: r.x + r.w/2,
+  y: r.y + r.h + 10, // top of corridor stub
+  roomIdx: r.idx,
+  triggerY: r.y + r.h + 60 // in the stub
+}));
+
+// ── Player ──
+const player = {
+  x: 240, y: 450,
+  w: 28, h: 36,
+  vx: 0, vy: 0,
+  speed: 200, // px/sec
+  facing: 'down', // up/down/left/right
+  animFrame: 0,
+  animTimer: 0,
+};
+
+// Input
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if ((e.key === 'e' || e.key === 'E' || e.key === 'Enter') && nearRoom >= 0 && !challengeActive) {
+    enterRoom(nearRoom);
+  }
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+function isWalkable(x, y, w, h) {
+  // Check if rect is inside a corridor or corridor stub
+  const rects = corridors;
+  const pad = 4;
+  for (const r of rects) {
+    if (x+pad >= r.x && x+w-pad <= r.x+r.w && y+pad >= r.y && y+h-pad <= r.y+r.h) return true;
+  }
+  return false;
+}
+
+function updatePlayer(dt) {
+  if (challengeActive) return;
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= 1;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+  if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= 1;
+  if (keys['ArrowDown']  || keys['s'] || keys['S']) dy += 1;
+
+  if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+
+  if (dx > 0) player.facing = 'right';
+  else if (dx < 0) player.facing = 'left';
+  else if (dy > 0) player.facing = 'down';
+  else if (dy < 0) player.facing = 'up';
+
+  const moving = dx !== 0 || dy !== 0;
+  if (moving) {
+    player.animTimer += dt;
+    if (player.animTimer > 0.18) { player.animTimer = 0; player.animFrame = (player.animFrame+1)%4; }
+  } else {
+    player.animFrame = 0; player.animTimer = 0;
+  }
+
+  const speed = player.speed;
+  const nx = player.x + dx * speed * dt;
+  const ny = player.y + dy * speed * dt;
+
+  // Try X movement
+  if (isWalkable(nx, player.y, player.w, player.h)) player.x = nx;
+  // Try Y movement
+  if (isWalkable(player.x, ny, player.w, player.h)) player.y = ny;
+
+  // Camera follows player (centered)
+  const targetCamX = player.x + player.w/2 - W/2;
+  const targetCamY = player.y + player.h/2 - H/2;
+  camX += (targetCamX - camX) * Math.min(1, dt * 8);
+  camY += (targetCamY - camY) * Math.min(1, dt * 8);
+  camX = Math.max(0, Math.min(MAP_W - W, camX));
+  camY = Math.max(0, Math.min(MAP_H - H, camY));
+
+  // Check near room
+  nearRoom = -1;
+  for (const door of doorPositions) {
+    const px = player.x + player.w/2;
+    const py = player.y + player.h/2;
+    const roomIdx = door.roomIdx;
+    // Only allow entering rooms in sequence — next available room
+    const nextAvail = roomDone.findIndex(d => !d);
+    if (roomIdx !== nextAvail) continue;
+    const dist = Math.hypot(px - door.x, py - door.triggerY);
+    if (dist < 70) { nearRoom = roomIdx; break; }
+  }
+
+  const promptEl = document.getElementById('enter-prompt');
+  if (nearRoom >= 0) {
+    promptEl.style.display = 'block';
+    promptEl.textContent = `[ E ] ENTER — ${ROOM_NAMES[nearRoom].toUpperCase()}`;
+  } else {
+    promptEl.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DRAW
+// ══════════════════════════════════════════════════════════════
+function drawStars() {
+  ctx.save();
+  for (const s of stars) {
+    // parallax: closer stars move more
+    const px = ((s.x * W * 2 - camX * (0.05 + s.layer * 0.1)) % (W * 2) + W * 2) % (W * 2) - W/2;
+    const py = ((s.y * H * 2 - camY * (0.02 + s.layer * 0.05)) % (H * 2) + H * 2) % (H * 2) - H/2;
+    ctx.globalAlpha = s.brightness * (0.5 + 0.5 * Math.sin(Date.now() * 0.001 * s.layer + s.x * 100));
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, s.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function worldToScreen(x, y) {
+  return [x - camX, y - camY];
+}
+
+function drawStation() {
+  ctx.save();
+
+  // Draw corridor floors
+  for (const c of corridors) {
+    const [sx, sy] = worldToScreen(c.x, c.y);
+    // Floor
+    ctx.fillStyle = '#0d1535';
+    ctx.fillRect(sx, sy, c.w, c.h);
+    // Grid lines
+    ctx.strokeStyle = 'rgba(0,100,180,0.12)';
+    ctx.lineWidth = 1;
+    for (let gx = Math.floor(c.x/40)*40; gx < c.x+c.w; gx+=40) {
+      const [lx] = worldToScreen(gx, 0);
+      ctx.beginPath(); ctx.moveTo(lx, sy); ctx.lineTo(lx, sy+c.h); ctx.stroke();
+    }
+    for (let gy = Math.floor(c.y/40)*40; gy < c.y+c.h; gy+=40) {
+      const [, ly] = worldToScreen(0, gy);
+      ctx.beginPath(); ctx.moveTo(sx, ly); ctx.lineTo(sx+c.w, ly); ctx.stroke();
+    }
+    // Border
+    ctx.strokeStyle = 'rgba(0,180,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(sx, sy, c.w, c.h);
+  }
+
+  // Flicker effect on some corridors
+  const flickers = [2, 5, 7];
+  for (const fi of flickers) {
+    const c = corridors[fi];
+    const [sx, sy] = worldToScreen(c.x, c.y);
+    const key = 'f'+fi;
+    if (!flickerTimers[key]) flickerTimers[key] = {t:0, state:true, next:Math.random()*3+1};
+    const ft = flickerTimers[key];
+    ft.t += 0.016;
+    if (ft.t > ft.next) { ft.state = !ft.state; ft.next = ft.state ? Math.random()*3+0.5 : Math.random()*0.2+0.05; ft.t=0; }
+    if (!ft.state) {
+      ctx.fillStyle = 'rgba(0,0,20,0.7)';
+      ctx.fillRect(sx, sy, c.w, c.h);
+    }
+  }
+
+  // Act dividers (vertical lines between act sections)
+  for (const ax of [960, 1840]) {
+    const [sx] = worldToScreen(ax, 390);
+    ctx.strokeStyle = 'rgba(0,212,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(sx, worldToScreen(0,390)[1]); ctx.lineTo(sx, worldToScreen(0,510)[1]); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Act labels on corridor floor
+  ctx.font = '700 11px "Courier New"';
+  ctx.textAlign = 'center';
+  for (const [startIdx, label] of [[0,'ACT I'],[3,'ACT II'],[6,'ACT III']]) {
+    const startRoom = rooms[startIdx];
+    const endRoom = rooms[startIdx+2];
+    const midX = (startRoom.x + endRoom.x + endRoom.w) / 2;
+    const [sx, sy] = worldToScreen(midX, 460);
+    ctx.fillStyle = 'rgba(0,212,255,0.35)';
+    ctx.fillText(label, sx, sy);
+  }
+
+  // Draw rooms
+  for (const room of rooms) {
+    const [sx, sy] = worldToScreen(room.x, room.y);
+    const done = roomDone[room.idx];
+    const nextAvail = roomDone.findIndex(d => !d);
+    const locked = room.idx > nextAvail;
+    const current = room.idx === nextAvail;
+
+    // Room background
+    if (locked) {
+      ctx.fillStyle = '#070714';
+    } else if (done) {
+      ctx.fillStyle = '#071a10';
+    } else {
+      ctx.fillStyle = '#0a0f25';
+    }
+    ctx.fillRect(sx, sy, room.w, room.h);
+
+    // Room border
+    if (done) {
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#00ff88';
+      ctx.shadowBlur = 8;
+    } else if (current) {
+      const pulse = 0.5 + 0.5*Math.sin(Date.now()*0.003);
+      ctx.strokeStyle = `rgba(0,${Math.round(160+95*pulse)},255,${0.6+0.4*pulse})`;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#00d4ff';
+      ctx.shadowBlur = 12 + 8*pulse;
+    } else {
+      ctx.strokeStyle = 'rgba(30,50,80,0.8)';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+    }
+    ctx.strokeRect(sx+1, sy+1, room.w-2, room.h-2);
+    ctx.shadowBlur = 0;
+
+    // Room name
+    ctx.font = '700 10px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = locked ? '#1a2540' : done ? '#00ff88' : current ? '#00d4ff' : '#3060a0';
+    ctx.fillText(room.name, sx + room.w/2, sy + room.h/2 - 8);
+
+    // Room number
+    ctx.font = '400 9px "Courier New"';
+    ctx.fillStyle = locked ? '#0f1830' : '#2a4060';
+    ctx.fillText(`ROOM ${room.idx+1}/9`, sx + room.w/2, sy + room.h/2 + 10);
+
+    // Checkmark for done rooms
+    if (done) {
+      ctx.font = '700 22px sans-serif';
+      ctx.fillStyle = '#00ff88';
+      ctx.globalAlpha = 0.85;
+      ctx.fillText('✓', sx + room.w/2, sy + room.h/2 + 32);
+      ctx.globalAlpha = 1;
+    }
+
+    // Locked icon
+    if (locked) {
+      ctx.font = '16px sans-serif';
+      ctx.fillStyle = '#1a2540';
+      ctx.fillText('🔒', sx + room.w/2, sy + room.h/2 + 32);
+    }
+
+    // Door frame at bottom of room
+    const dw = 36, dh = 14;
+    const dx2 = sx + room.w/2 - dw/2;
+    const dy2 = sy + room.h - 4;
+    ctx.fillStyle = locked ? '#070714' : done ? '#071a10' : current ? '#001830' : '#050f20';
+    ctx.fillRect(dx2, dy2, dw, dh);
+    ctx.strokeStyle = locked ? '#1a2540' : done ? '#00ff88' : current ? '#00d4ff' : '#1a3050';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(dx2, dy2, dw, dh);
+    // Door label
+    ctx.font = '500 7px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = locked ? '#1a2540' : done ? '#00ff88' : '#00d4ff';
+    ctx.fillText('ENTER', dx2+dw/2, dy2+9);
+  }
+
+  ctx.textAlign = 'left';
+}
+
+function drawPlayer() {
+  const [sx, sy] = worldToScreen(player.x, player.y);
+  const px = sx, py = sy;
+  const w = player.w, h = player.h;
+
+  // Light radius
+  const lightRadius = 220;
+  const gradient = ctx.createRadialGradient(px+w/2, py+h/2, 0, px+w/2, py+h/2, lightRadius);
+  gradient.addColorStop(0, 'rgba(0,180,255,0.08)');
+  gradient.addColorStop(0.4, 'rgba(0,100,180,0.04)');
+  gradient.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(px+w/2-lightRadius, py+h/2-lightRadius, lightRadius*2, lightRadius*2);
+
+  // Walk bob
+  const bob = player.animFrame % 2 === 1 ? 2 : 0;
+
+  // In multiplayer, your own suit takes your assigned pilot color.
+  const suit = (typeof mp !== 'undefined' && mp) ? myColorHex() : '#ddeeff';
+
+  // Body (white suit)
+  ctx.save();
+  ctx.translate(px + w/2, py + h/2 + bob);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, h/2+2, 10, 5, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Legs
+  const legSwing = Math.sin(player.animFrame * Math.PI/2) * 4;
+  ctx.fillStyle = '#c0d0e0';
+  ctx.fillRect(-7, 6, 6, 10);  // left leg
+  ctx.fillRect(1, 6, 6, 10);   // right leg
+  // Boot
+  ctx.fillStyle = '#889aaa';
+  ctx.fillRect(-8, 14, 7, 4);
+  ctx.fillRect(1, 14, 7, 4);
+
+  // Body
+  ctx.fillStyle = suit;
+  ctx.beginPath();
+  ctx.roundRect(-9, -8, 18, 16, 3);
+  ctx.fill();
+
+  // Suit detail lines
+  ctx.strokeStyle = '#aabbcc';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(-5, -6); ctx.lineTo(-5, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5, -6); ctx.lineTo(5, 6); ctx.stroke();
+
+  // Visor/helmet
+  ctx.fillStyle = suit;
+  ctx.beginPath();
+  ctx.arc(0, -14, 10, 0, Math.PI*2);
+  ctx.fill();
+
+  // Visor glass
+  ctx.fillStyle = '#001040';
+  ctx.beginPath();
+  ctx.arc(0, -14, 7, 0, Math.PI*2);
+  ctx.fill();
+  // Visor shine
+  ctx.fillStyle = 'rgba(0,200,255,0.4)';
+  ctx.beginPath();
+  ctx.arc(-2, -16, 4, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.arc(-2, -16, 2, 0, Math.PI*2);
+  ctx.fill();
+
+  // Arms
+  ctx.fillStyle = '#c0d0e0';
+  const armSwing = Math.sin(player.animFrame * Math.PI/2) * 3;
+  ctx.save();
+  ctx.translate(-12, -4);
+  ctx.rotate(armSwing * 0.1);
+  ctx.fillRect(-3, 0, 5, 10);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(12, -4);
+  ctx.rotate(-armSwing * 0.1);
+  ctx.fillRect(-2, 0, 5, 10);
+  ctx.restore();
+
+  // Direction indicator (tiny glow dot)
+  ctx.fillStyle = 'rgba(0,212,255,0.8)';
+  let dox=0, doy=0;
+  if (player.facing==='right') dox=10;
+  else if (player.facing==='left') dox=-10;
+  else if (player.facing==='up') doy=-20;
+  else doy=8;
+  ctx.beginPath(); ctx.arc(dox, -14+doy, 2, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// Vignette — darker at edges away from player
+function drawDarkness() {
+  const [px, py] = worldToScreen(player.x + player.w/2, player.y + player.h/2);
+  const gradient = ctx.createRadialGradient(px, py, 80, px, py, Math.max(W, H) * 0.9);
+  gradient.addColorStop(0, 'transparent');
+  gradient.addColorStop(0.5, 'rgba(0,0,10,0.2)');
+  gradient.addColorStop(1, 'rgba(0,0,10,0.75)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawFrame(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+
+  updatePlayer(dt);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Space background
+  ctx.fillStyle = '#000006';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  drawStars();
+
+  // Station map
+  drawStation();
+
+  // Player
+  drawPlayer();
+
+  // Darkness/vignette
+  drawDarkness();
+
+  // Remote pilots drawn on top of the vignette so they stay visible
+  drawRemotePlayers();
+
+  animFrame = requestAnimationFrame(drawFrame);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GAME FLOW
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  TITLE SCREEN CANVAS
+// ══════════════════════════════════════════════════════════════
+const titleCanvas = document.getElementById('title-canvas');
+const tctx = titleCanvas.getContext('2d');
+let titleAnimFrame = null;
+let titleStars = [];
+const TITLE_STAR_COUNT = 220;
+
+function initTitleCanvas() {
+  titleCanvas.width = window.innerWidth;
+  titleCanvas.height = window.innerHeight;
+  titleStars = [];
+  for (let i = 0; i < TITLE_STAR_COUNT; i++) {
+    titleStars.push({
+      x: Math.random() * titleCanvas.width,
+      y: Math.random() * titleCanvas.height,
+      size: Math.random() * 1.8 + 0.3,
+      brightness: Math.random() * 0.7 + 0.3,
+      speed: Math.random() * 0.03 + 0.01,
+      phase: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+function drawTitleFrame(ts) {
+  const TW = titleCanvas.width, TH = titleCanvas.height;
+  tctx.clearRect(0, 0, TW, TH);
+
+  // Deep space background
+  const bgGrad = tctx.createLinearGradient(0, 0, 0, TH);
+  bgGrad.addColorStop(0, '#000008');
+  bgGrad.addColorStop(1, '#00020f');
+  tctx.fillStyle = bgGrad;
+  tctx.fillRect(0, 0, TW, TH);
+
+  // Nebula clouds (soft purple/blue blobs)
+  const nebulas = [
+    {x: TW*0.15, y: TH*0.3, rx: TW*0.22, ry: TH*0.25, col1:'rgba(60,0,120,0.09)', col2:'rgba(0,30,100,0.05)'},
+    {x: TW*0.78, y: TH*0.55, rx: TW*0.28, ry: TH*0.28, col1:'rgba(0,40,120,0.08)', col2:'rgba(60,0,80,0.04)'},
+    {x: TW*0.5,  y: TH*0.15, rx: TW*0.35, ry: TH*0.18, col1:'rgba(20,0,80,0.07)',  col2:'rgba(0,20,60,0.03)'},
+  ];
+  nebulas.forEach(nb => {
+    const g = tctx.createRadialGradient(nb.x, nb.y, 0, nb.x, nb.y, Math.max(nb.rx, nb.ry));
+    g.addColorStop(0, nb.col1);
+    g.addColorStop(1, nb.col2);
+    tctx.save();
+    tctx.scale(1, nb.ry / nb.rx);
+    tctx.fillStyle = g;
+    tctx.beginPath();
+    tctx.arc(nb.x, nb.y * (nb.rx / nb.ry), nb.rx, 0, Math.PI * 2);
+    tctx.fill();
+    tctx.restore();
+  });
+
+  // Stars
+  const t = ts * 0.001;
+  titleStars.forEach(s => {
+    const alpha = s.brightness * (0.4 + 0.6 * Math.sin(t * s.speed * 20 + s.phase));
+    tctx.globalAlpha = alpha;
+    tctx.fillStyle = '#ffffff';
+    tctx.beginPath();
+    tctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    tctx.fill();
+  });
+  tctx.globalAlpha = 1;
+
+  // Earth — soft blue/white circle partially off-screen at bottom center
+  const ex = TW * 0.5, ey = TH + TH * 0.18;
+  const er = TH * 0.55;
+  const earthGrad = tctx.createRadialGradient(ex - er*0.2, ey - er*0.4, 0, ex, ey, er);
+  earthGrad.addColorStop(0,   'rgba(80,160,255,0.55)');
+  earthGrad.addColorStop(0.4, 'rgba(40,100,200,0.35)');
+  earthGrad.addColorStop(0.75,'rgba(10,50,120,0.2)');
+  earthGrad.addColorStop(1,   'transparent');
+  tctx.fillStyle = earthGrad;
+  tctx.beginPath();
+  tctx.arc(ex, ey, er, 0, Math.PI * 2);
+  tctx.fill();
+  // Earth glow rim
+  const rimGrad = tctx.createRadialGradient(ex, ey, er*0.85, ex, ey, er*1.15);
+  rimGrad.addColorStop(0,   'transparent');
+  rimGrad.addColorStop(0.5, 'rgba(60,140,255,0.12)');
+  rimGrad.addColorStop(1,   'transparent');
+  tctx.fillStyle = rimGrad;
+  tctx.beginPath();
+  tctx.arc(ex, ey, er * 1.15, 0, Math.PI * 2);
+  tctx.fill();
+
+  // Space station silhouette — central hub + extending arms/modules
+  const ssx = TW * 0.82, ssy = TH * 0.22;
+  const ssScale = Math.min(TW, TH) * 0.0008;
+  tctx.save();
+  tctx.translate(ssx, ssy);
+  tctx.scale(ssScale, ssScale);
+  tctx.rotate(t * 0.015); // slowly rotating
+
+  const ssCol = 'rgba(30,50,80,0.55)';
+  const ssBorder = 'rgba(0,100,160,0.3)';
+
+  // Central hub
+  tctx.fillStyle = ssCol;
+  tctx.strokeStyle = ssBorder;
+  tctx.lineWidth = 3;
+  tctx.beginPath(); tctx.arc(0, 0, 42, 0, Math.PI*2); tctx.fill(); tctx.stroke();
+  // Inner hub ring
+  tctx.beginPath(); tctx.arc(0, 0, 28, 0, Math.PI*2); tctx.stroke();
+
+  // 4 main arms + end modules
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([ax, ay]) => {
+    // Arm
+    tctx.fillStyle = ssCol;
+    tctx.fillRect(ax*42, ay*42 - 9*(1-Math.abs(ax)), Math.abs(ax)*110 || 18, Math.abs(ay)*110 || 18);
+    tctx.strokeStyle = ssBorder;
+    tctx.strokeRect(ax*42, ay*42 - 9*(1-Math.abs(ax)), Math.abs(ax)*110 || 18, Math.abs(ay)*110 || 18);
+    // End module
+    const mx = ax * 155, my = ay * 155;
+    tctx.fillStyle = ssCol;
+    tctx.beginPath(); tctx.arc(mx, my, 26, 0, Math.PI*2); tctx.fill(); tctx.stroke();
+    // Small solar panel stubs perpendicular
+    const perpX = ay, perpY = ax;
+    tctx.fillRect(mx + perpX*26, my + perpY*26 - 5, perpX*60 || 12, perpY*60 || 12);
+    tctx.fillRect(mx - perpX*86, my - perpY*86 - 5, perpX*60 || 12, perpY*60 || 12);
+    tctx.strokeRect(mx + perpX*26, my + perpY*26 - 5, perpX*60 || 12, perpY*60 || 12);
+    tctx.strokeRect(mx - perpX*86, my - perpY*86 - 5, perpX*60 || 12, perpY*60 || 12);
+  });
+  // Diagonal arms (shorter)
+  [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([ax, ay]) => {
+    tctx.strokeStyle = 'rgba(0,80,130,0.25)';
+    tctx.lineWidth = 8;
+    tctx.beginPath(); tctx.moveTo(ax*32, ay*32); tctx.lineTo(ax*90, ay*90); tctx.stroke();
+    tctx.fillStyle = ssCol;
+    tctx.beginPath(); tctx.arc(ax*100, ay*100, 16, 0, Math.PI*2); tctx.fill();
+  });
+
+  tctx.restore();
+
+  titleAnimFrame = requestAnimationFrame(drawTitleFrame);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  LOADING + TITLE SEQUENCE
+// ══════════════════════════════════════════════════════════════
+const LOG_ENTRIES = [
+  { text: '[ OK ] Life Support',      cls: 'ok',   delay: 180 },
+  { text: '[ OK ] Navigation',         cls: 'ok',   delay: 340 },
+  { text: '[ OK ] Cryo Systems',       cls: 'ok',   delay: 520 },
+  { text: '[ FAIL ] Communications',   cls: 'fail', delay: 760 },
+  { text: '[ FAIL ] Reactor Core',     cls: 'fail', delay: 980 },
+  { text: '[ WARN ] AI Systems',       cls: 'warn', delay: 1200 },
+];
+const TAGLINE = 'Axiom-7 has gone dark. You are the only one left awake.';
+
+let audioUnlocked = false;
+let loadingDone = false;
+
+async function tryUnlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  initAudio();
+  // CRITICAL: browsers suspend AudioContext until a user gesture resumes it
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch(e) {}
+  }
+  startAmbientMusic();
+  document.getElementById('audio-nudge').style.display = 'none';
+}
+
+function runLoadingSequence() {
+  const bar = document.getElementById('loading-bar');
+  const logEl = document.getElementById('loading-log');
+
+  // Build log lines
+  LOG_ENTRIES.forEach(entry => {
+    const line = document.createElement('div');
+    line.className = 'loading-log-line ' + entry.cls;
+    line.textContent = entry.text;
+    logEl.appendChild(line);
+  });
+
+  const lines = logEl.querySelectorAll('.loading-log-line');
+
+  // Animate bar and reveal lines
+  let startTime = null;
+  const TOTAL_DUR = 2200; // ms
+
+  function tick(ts) {
+    if (!startTime) startTime = ts;
+    const elapsed = ts - startTime;
+    const pct = Math.min(elapsed / TOTAL_DUR, 1) * 100;
+    bar.style.width = pct + '%';
+
+    LOG_ENTRIES.forEach((entry, i) => {
+      if (elapsed >= entry.delay) {
+        lines[i].classList.add('vis');
+      }
+    });
+
+    if (elapsed < TOTAL_DUR) {
+      requestAnimationFrame(tick);
+    } else {
+      // Fade loading screen, show title
+      const loadEl = document.getElementById('loading-screen');
+      loadEl.classList.add('fade-out');
+      setTimeout(showTitleScreen, 700);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function showTitleScreen() {
+  const loadEl = document.getElementById('loading-screen');
+  loadEl.style.display = 'none';
+
+  // Start title canvas
+  initTitleCanvas();
+  titleCanvas.style.display = 'block';
+  requestAnimationFrame(drawTitleFrame);
+
+  // Show intro screen
+  const introEl = document.getElementById('intro-screen');
+  introEl.style.display = 'flex';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { introEl.classList.add('visible'); });
+  });
+
+  // Type tagline
+  typeTagline();
+
+  // Show audio nudge if audio not yet unlocked
+  if (!audioUnlocked) {
+    document.getElementById('audio-nudge').style.display = 'block';
+  }
+  // Always show title mute button once title screen is visible
+  document.getElementById('title-mute-btn').style.display = 'block';
+}
+
+function typeTagline() {
+  const el = document.getElementById('tagline');
+  el.textContent = '';
+  let i = 0;
+  function next() {
+    if (i < TAGLINE.length) {
+      el.textContent += TAGLINE[i++];
+      setTimeout(next, 38);
+    }
+  }
+  setTimeout(next, 300);
+}
+
+// Kick off loading on DOM ready
+window.addEventListener('DOMContentLoaded', () => {
+  runLoadingSequence();
+
+  // A single click/keydown ANYWHERE unlocks audio — this is the correct browser pattern.
+  // We use capture so it fires before any other handler. Removed after first trigger.
+  function unlockOnGesture(e) {
+    tryUnlockAudio();
+    document.removeEventListener('click', unlockOnGesture, true);
+    document.removeEventListener('keydown', unlockOnGesture, true);
+  }
+  document.addEventListener('click', unlockOnGesture, true);
+  document.addEventListener('keydown', unlockOnGesture, true);
+});
+
+function startGame() {
+  // Ensure audio is running
+  tryUnlockAudio();
+
+  // Cancel title canvas animation
+  if (titleAnimFrame) { cancelAnimationFrame(titleAnimFrame); titleAnimFrame = null; }
+
+  // Fade title screen to black then reveal game
+  const introEl = document.getElementById('intro-screen');
+  const titleCv = document.getElementById('title-canvas');
+
+  // Overlay black fade
+  const fade = document.createElement('div');
+  fade.style.cssText = 'position:fixed;inset:0;z-index:500;background:#000;opacity:0;transition:opacity 1s ease;pointer-events:none;';
+  document.body.appendChild(fade);
+  requestAnimationFrame(() => { fade.style.opacity = '1'; });
+
+  setTimeout(() => {
+    introEl.style.display = 'none';
+    titleCv.style.display = 'none';
+    document.getElementById('audio-nudge').style.display = 'none';
+    document.getElementById('title-mute-btn').style.display = 'none';
+
+    canvas.style.display = 'block';
+    canvas.style.opacity = '0';
+    canvas.style.transition = 'opacity 1s ease';
+    document.getElementById('game-hud').style.display = 'block';
+    document.getElementById('game-hud').style.opacity = '0';
+    document.getElementById('game-hud').style.transition = 'opacity 1s ease';
+
+    gameStarted = true;
+    resize();
+    camX = 0; camY = 0;
+    lastTime = performance.now();
+    animFrame = requestAnimationFrame(drawFrame);
+    startExplorationMusic();
+    updateHUD();
+
+    requestAnimationFrame(() => {
+      fade.style.opacity = '0';
+      canvas.style.opacity = '1';
+      document.getElementById('game-hud').style.opacity = '1';
+    });
+    setTimeout(() => { fade.remove(); }, 1100);
+  }, 1000);
+}
+
+function enterRoom(idx) {
+  if (challengeActive) return;
+  challengeActive = true;
+  nearRoom = -1;
+  document.getElementById('enter-prompt').style.display = 'none';
+  playEnterRoom();
+  transitionToChallenge();
+
+  // Zoom transition
+  showTransition(
+    `ENTERING ${ROOM_NAMES[idx].toUpperCase()}`,
+    getActLabel(idx),
+    () => {
+      const panel = document.getElementById('challenge-panel');
+      panel.innerHTML = '';
+      document.getElementById('challenge-overlay').classList.add('show');
+      ROOM_BUILDERS[idx]();
+    },
+    1400
+  );
+}
+
+function getActLabel(idx) {
+  if (idx < 3) return 'ACT I — AWAKENING';
+  if (idx < 6) return 'ACT II — DISCOVERY';
+  return 'ACT III — ESCAPE';
+}
+
+function leaveRoom() {
+  challengeActive = false;
+  document.getElementById('challenge-overlay').classList.remove('show');
+  transitionToExploration();
+}
+
+function nextRoom() {
+  roomDone[currentRoom] = true;
+  // A cleared level wipes the slate: strikes reset at each level boundary.
+  if (currentRoom < 8 && levelOfRoom(currentRoom + 1) !== levelOfRoom(currentRoom)) strikes = 0;
+  updateHUD();
+  mpSendProgress();
+  document.getElementById('challenge-overlay').classList.remove('show');
+  playSuccess();
+
+  if (currentRoom >= 8) {
+    if (cycle < 2) {
+      // New Game+ : the escape fails and the station drags you back,
+      // deeper systems failing — every room replays at the next tier.
+      const nextCycleTexts = [
+        "THE POD DETACHES — then shudders. ARIA's voice crackles: \"Trajectory rejected. Guidance was a decoy.\" A tractor field hauls you back into the dark hangar. The station isn't done with you — and this time, its systems are failing at a deeper layer.",
+        "SECOND LAUNCH — the pod clears the hangar... and the stars bend. A recall loop snaps you back to the cryo deck. One escape remains, and the station's final systems demand everything you know.",
+      ];
+      showTransition(
+        nextCycleTexts[cycle],
+        `ESCAPE CYCLE ${cycle + 2} — ${CYCLE_NAMES[cycle + 1]} TIER`,
+        () => {
+          cycle++;
+          roomDone.fill(false);
+          strikes = 0;
+          levelVariant = [0, 0, 0, 0];
+          roomVariant = new Array(9).fill(0);
+          currentRoom = -1;
+          challengeActive = false;
+          player.x = 240; player.y = 450;
+          updateHUD();
+          mpSendProgress();
+        },
+        5200
+      );
+      return;
+    }
+    showTransition(
+      "THIRD LAUNCH — the recall loop is severed. The pod tears free of Axiom-7 for good. Through the viewport, the station finally grows smaller. You mastered every system it threw at you. You made it.",
+      "Mission accomplished — all three tiers cleared.",
+      () => {
+        stopChallengeMusic();
+        stopExplorationMusic();
+        playVictory();
+        challengeActive = false;
+        showCompletion();
+      },
+      3800
+    );
+    return;
+  }
+
+  const transitions = [
+    ["Power flickers across the station. The emergency lighting bathes the corridor in amber. You move toward the reactor.", "ACT I · REACTOR ROOM"],
+    ["A low hum resonates through the hull. Reactor nominal. You sprint to the communications array.", "ACT I · COMMUNICATIONS"],
+    ["Static resolves into a clear signal. The distress beacon fires into the void. Now — find out what happened.", "ACT II · DATA LAB"],
+    ["The resource graphs tell a disturbing story. You pull up the captain's personal log.", "ACT II · CAPTAIN'S LOG"],
+    ["The captain's final words hang in the air. The AI terminal is still active — and it's waiting.", "ACT II · AI TERMINAL"],
+    ["The AI confirms your worst fears. The station is beyond saving. You race toward Navigation.", "ACT III · NAVIGATION"],
+    ["Your trajectory is locked. The airlock hisses open. One final broadcast before you go.", "ACT III · AIRLOCK"],
+    ["The pod awaits. Three systems need your confirmation to launch. This is it.", "ACT III · LAUNCH"],
+  ];
+  const [txt, sub] = transitions[currentRoom] || ["Proceeding...", ""];
+  showTransition(txt, sub, () => {
+    challengeActive = false;
+    transitionToExploration();
+    // Move player toward next room
+    const nextIdx = currentRoom + 1;
+    if (nextIdx < rooms.length) {
+      const nextRoom2 = rooms[nextIdx];
+      player.x = nextRoom2.x + nextRoom2.w/2 - player.w/2;
+      player.y = 450;
+    }
+  }, 2800);
+}
+
+function showCompletion() {
+  mpSendProgress(true);
+  document.getElementById('completion-screen').classList.add('show');
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-total').textContent = totalQ;
+  const pct = totalQ > 0 ? score / totalQ : 0;
+  let msg = '';
+  if (pct >= .9) msg = '◈ OUTSTANDING — Mission specialist tier. You\'re ready for SAT.';
+  else if (pct >= .75) msg = '◈ STRONG PERFORMANCE — Clear strengths. A few areas to review.';
+  else if (pct >= .6) msg = '◈ SOLID EFFORT — Good foundation. Keep practicing.';
+  else msg = '◈ KEEP GOING — Every mission teaches you something. Try again.';
+  document.getElementById('grade-msg').textContent = msg;
+}
+
+function restartGame() {
+  score = 0; totalQ = 0; currentRoom = -1; challengeActive = false;
+  roomDone.fill(false); nearRoom = -1;
+  strikes = 0; levelVariant = [0, 0, 0, 0]; roomVariant = new Array(9).fill(0); currentLimit = 3; cycle = 0;
+  player.x = 240; player.y = 450;
+  document.getElementById('completion-screen').classList.remove('show');
+  document.getElementById('challenge-overlay').classList.remove('show');
+  stopChallengeMusic(); stopExplorationMusic(); currentAudioState = null;
+  startExplorationMusic();
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('hud-score').textContent = score;
+  document.getElementById('hud-total').textContent = totalQ;
+  const next = roomDone.findIndex(d => !d);
+  if (next >= 0) {
+    document.getElementById('hud-loc').textContent = ROOM_NAMES[next];
+    document.getElementById('hud-act').textContent = getActLabel(next);
+    document.getElementById('hud-level').textContent =
+      `CYCLE ${cycle + 1}/3 · ${CYCLE_NAMES[cycle]} · ${DIFF_LEVELS[levelOfRoom(next)].name}`;
+  }
+  document.getElementById('hud-strikes').textContent =
+    '🟢'.repeat(Math.max(0, currentLimit - strikes)) + '🔴'.repeat(Math.min(currentLimit, strikes));
+  document.getElementById('hud-strikes').title =
+    `${currentLimit} misses in this room and it restarts with fresh questions`;
+}
+
+function showTransition(text, sub, cb, delay=2600) {
+  const t = document.getElementById('transition');
+  document.getElementById('trans-text').textContent = text;
+  document.getElementById('trans-sub').textContent = sub || '';
+  t.classList.add('show');
+  setTimeout(() => {
+    t.classList.remove('show');
+    if (cb) setTimeout(cb, 400);
+  }, delay);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ROOM ILLUSTRATIONS
+// ══════════════════════════════════════════════════════════════
+function drawRoomIllustration(roomIdx, canvas) {
+  const W = canvas.width, H = canvas.height;
+  const c = canvas.getContext('2d');
+
+  function clearBg(col) {
+    c.fillStyle = col || '#04070f';
+    c.fillRect(0, 0, W, H);
+  }
+
+  function radGrad(x, y, r0, r1, stops) {
+    const g = c.createRadialGradient(x, y, r0, x, y, r1);
+    stops.forEach(([t, col]) => g.addColorStop(t, col));
+    return g;
+  }
+
+  function linGrad(x0, y0, x1, y1, stops) {
+    const g = c.createLinearGradient(x0, y0, x1, y1);
+    stops.forEach(([t, col]) => g.addColorStop(t, col));
+    return g;
+  }
+
+  // Shared star field helper
+  function drawStarField(count, alpha) {
+    c.save();
+    c.globalAlpha = alpha || 0.7;
+    const seed = roomIdx * 137;
+    for (let i = 0; i < count; i++) {
+      const sx = ((seed * (i+1) * 2654435761) & 0xFFFF) / 65535 * W;
+      const sy = ((seed * (i+1) * 2246822519) & 0xFFFF) / 65535 * H;
+      const sr = 0.4 + (((seed * i * 3) & 0xFF) / 255) * 1.2;
+      c.fillStyle = '#ffffff';
+      c.beginPath(); c.arc(sx, sy, sr, 0, Math.PI*2); c.fill();
+    }
+    c.restore();
+  }
+
+  if (roomIdx === 0) {
+    // ── CRYO BAY ──
+    clearBg('#020810');
+    // Deep background gradient
+    c.fillStyle = linGrad(0, 0, 0, H, [[0,'#020810'],[1,'#061220']]);
+    c.fillRect(0, 0, W, H);
+
+    // Floor/ceiling lines — perspective
+    c.strokeStyle = 'rgba(0,80,140,0.3)';
+    c.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      const x = i * W / 7;
+      c.beginPath(); c.moveTo(x, 0); c.lineTo(W/2 + (x - W/2)*0.3, H); c.stroke();
+    }
+
+    // Row of cryo pods — left side
+    const podW = 54, podH = 130, podGap = 12;
+    const totalPods = 5;
+    const startY = (H - podH) / 2 - 10;
+
+    for (let i = 0; i < totalPods; i++) {
+      const px = 30 + i * (podW + podGap);
+      const py = startY;
+      const isOpen = (i === 0);
+      const isPlayer = isOpen;
+
+      // Pod body
+      c.fillStyle = isOpen ? '#0a1428' : '#0d1e38';
+      c.beginPath();
+      c.roundRect(px, py, podW, podH, [8, 8, 4, 4]);
+      c.fill();
+
+      // Frost effect on closed pods
+      if (!isOpen) {
+        c.fillStyle = 'rgba(160,210,255,0.06)';
+        for (let f = 0; f < 4; f++) {
+          const fx = px + 4 + f * 12;
+          c.beginPath(); c.moveTo(fx, py+8); c.lineTo(fx-6, py+podH-10); c.lineWidth=1.5; c.strokeStyle='rgba(180,220,255,0.12)'; c.stroke();
+        }
+        // Ice crystals
+        c.strokeStyle = 'rgba(160,220,255,0.18)';
+        c.lineWidth = 0.8;
+        for (let f = 0; f < 5; f++) {
+          const fcx = px + 8 + f * 8;
+          const fcy = py + 20 + f * 18;
+          c.beginPath(); c.moveTo(fcx-4, fcy); c.lineTo(fcx+4, fcy); c.stroke();
+          c.beginPath(); c.moveTo(fcx, fcy-4); c.lineTo(fcx, fcy+4); c.stroke();
+        }
+      }
+
+      // Pod window / visor
+      const winY = py + 14;
+      const winH = 52;
+      if (isOpen) {
+        // Open pod — dark empty interior
+        c.fillStyle = '#010508';
+        c.beginPath(); c.roundRect(px+8, winY, podW-16, winH, 4); c.fill();
+        // Open lid effect
+        c.fillStyle = '#0d1e38';
+        c.beginPath(); c.roundRect(px, py-18, podW, 20, [4,4,0,0]); c.fill();
+        c.strokeStyle = 'rgba(0,180,255,0.4)'; c.lineWidth=1.5;
+        c.strokeRect(px, py-18, podW, 20);
+        // "EMPTY" label
+        c.fillStyle = 'rgba(255,180,0,0.7)';
+        c.font = '500 7px "Courier New"';
+        c.textAlign = 'center';
+        c.fillText('VACANT', px+podW/2, winY+winH+10);
+      } else {
+        // Closed pod — blue glow visor
+        const glowColor = i % 3 === 0 ? 'rgba(0,160,255,0.9)' : 'rgba(0,120,200,0.7)';
+        c.fillStyle = radGrad(px+podW/2, winY+winH/2, 0, podW/2, [[0,'rgba(0,200,255,0.35)'],[1,'rgba(0,60,120,0.9)']]);
+        c.beginPath(); c.roundRect(px+8, winY, podW-16, winH, 4); c.fill();
+        // Status light
+        c.fillStyle = glowColor;
+        c.beginPath(); c.arc(px+podW/2, winY+winH+8, 3, 0, Math.PI*2); c.fill();
+        c.shadowColor = '#00aaff'; c.shadowBlur = 8;
+        c.beginPath(); c.arc(px+podW/2, winY+winH+8, 2, 0, Math.PI*2); c.fill();
+        c.shadowBlur = 0;
+      }
+
+      // Pod outline
+      c.strokeStyle = isOpen ? 'rgba(255,160,0,0.5)' : 'rgba(0,140,220,0.45)';
+      c.lineWidth = 1.5;
+      c.beginPath(); c.roundRect(px, py, podW, podH, [8,8,4,4]); c.stroke();
+    }
+
+    // Emergency lighting — long orange shadows from ceiling
+    for (let i = 0; i < 3; i++) {
+      const lx = 80 + i * 180;
+      c.fillStyle = radGrad(lx, 0, 0, 100, [[0,'rgba(255,120,0,0.12)'],[1,'transparent']]);
+      c.fillRect(lx-100, 0, 200, H);
+    }
+
+    // Atmospheric haze
+    c.fillStyle = 'rgba(0,10,30,0.25)';
+    c.fillRect(0, 0, W, H);
+
+    // Room label
+    c.fillStyle = 'rgba(0,180,255,0.5)';
+    c.font = '600 10px "Courier New"';
+    c.textAlign = 'right';
+    c.fillText('CRYO BAY — SECTOR A', W-12, H-8);
+
+  } else if (roomIdx === 1) {
+    // ── REACTOR ROOM ──
+    clearBg('#0a0500');
+    c.fillStyle = linGrad(0,0,0,H, [[0,'#0a0502'],[1,'#150a00']]);
+    c.fillRect(0,0,W,H);
+
+    // Pipes radiating from center
+    const cx = W/2, cy = H/2 + 10;
+    const pipeAngles = [0, 35, 72, 108, 144, 180, 216, 252, 288, 324];
+    pipeAngles.forEach(angle => {
+      const rad = angle * Math.PI/180;
+      const len = 180;
+      c.strokeStyle = 'rgba(80,50,20,0.7)';
+      c.lineWidth = 10;
+      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(rad)*len, cy + Math.sin(rad)*len); c.stroke();
+      c.strokeStyle = 'rgba(120,70,20,0.4)';
+      c.lineWidth = 6;
+      c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + Math.cos(rad)*len, cy + Math.sin(rad)*len); c.stroke();
+    });
+
+    // Outer ring of reactor
+    c.strokeStyle = 'rgba(180,100,20,0.5)';
+    c.lineWidth = 14;
+    c.beginPath(); c.arc(cx, cy, 95, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = 'rgba(220,140,30,0.3)';
+    c.lineWidth = 4;
+    c.beginPath(); c.arc(cx, cy, 95, 0, Math.PI*2); c.stroke();
+
+    // Reactor core glow
+    c.fillStyle = radGrad(cx, cy, 0, 80, [[0,'rgba(255,200,50,1)'],[0.3,'rgba(255,120,0,0.9)'],[0.7,'rgba(200,60,0,0.5)'],[1,'transparent']]);
+    c.beginPath(); c.arc(cx, cy, 80, 0, Math.PI*2); c.fill();
+
+    // Core inner circle
+    c.fillStyle = radGrad(cx, cy, 0, 45, [[0,'#ffe080'],[0.4,'#ff8800'],[1,'rgba(180,40,0,0.9)']]);
+    c.beginPath(); c.arc(cx, cy, 45, 0, Math.PI*2); c.fill();
+
+    // Energy particles rising
+    c.save();
+    for (let p = 0; p < 18; p++) {
+      const px2 = cx + (Math.random()-0.5)*60;
+      const py2 = cy - 20 - Math.random()*80;
+      const ps = 1 + Math.random()*2;
+      c.globalAlpha = 0.4 + Math.random()*0.5;
+      c.fillStyle = Math.random() > 0.5 ? '#ffcc00' : '#ff6600';
+      c.beginPath(); c.arc(px2, py2, ps, 0, Math.PI*2); c.fill();
+    }
+    c.restore();
+
+    // Warning lights on walls — red flashes
+    const warningPositions = [[30, 30], [W-30, 30], [30, H-30], [W-30, H-30]];
+    warningPositions.forEach(([wx, wy]) => {
+      c.fillStyle = radGrad(wx, wy, 0, 28, [[0,'rgba(255,30,0,0.9)'],[1,'transparent']]);
+      c.beginPath(); c.arc(wx, wy, 28, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#ff2200';
+      c.beginPath(); c.arc(wx, wy, 7, 0, Math.PI*2); c.fill();
+      c.strokeStyle = 'rgba(255,60,0,0.6)'; c.lineWidth=2;
+      c.beginPath(); c.arc(wx, wy, 12, 0, Math.PI*2); c.stroke();
+    });
+
+    // Steam wisps from core
+    c.save(); c.globalAlpha = 0.15;
+    for (let s = 0; s < 5; s++) {
+      const sx2 = cx + (s-2)*18;
+      const grad = linGrad(sx2, cy-40, sx2, cy-120, [[0,'rgba(255,180,60,0.5)'],[1,'transparent']]);
+      c.fillStyle = grad;
+      c.beginPath(); c.ellipse(sx2, cy-80, 10, 40, 0, 0, Math.PI*2); c.fill();
+    }
+    c.restore();
+
+    c.fillStyle = 'rgba(255,120,0,0.45)';
+    c.font = '600 10px "Courier New"';
+    c.textAlign = 'right';
+    c.fillText('REACTOR CORE — LEVEL 3', W-12, H-8);
+
+  } else if (roomIdx === 2) {
+    // ── COMMUNICATIONS ──
+    clearBg('#030810');
+    c.fillStyle = linGrad(0,0,0,H,[[0,'#030810'],[1,'#071525']]);
+    c.fillRect(0,0,W,H);
+
+    // Porthole window — top right, showing stars
+    const portX = W-90, portY = 20, portR = 55;
+    c.save();
+    c.beginPath(); c.arc(portX, portY+portR, portR, 0, Math.PI*2); c.clip();
+    c.fillStyle = '#000208';
+    c.fillRect(portX-portR, portY, portR*2, portR*2+20);
+    drawStarField(40, 0.9);
+    // Distant galaxy smear
+    c.fillStyle = radGrad(portX+10, portY+portR-10, 0, 30, [[0,'rgba(100,80,180,0.3)'],[1,'transparent']]);
+    c.fillRect(portX-portR, portY, portR*2, portR*2);
+    c.restore();
+    // Porthole rim
+    c.strokeStyle = '#304060'; c.lineWidth = 6;
+    c.beginPath(); c.arc(portX, portY+portR, portR, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = 'rgba(0,140,200,0.5)'; c.lineWidth = 2;
+    c.beginPath(); c.arc(portX, portY+portR, portR-3, 0, Math.PI*2); c.stroke();
+    // Crosshairs on porthole
+    c.strokeStyle='rgba(0,180,255,0.25)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(portX-portR+8, portY+portR); c.lineTo(portX+portR-8, portY+portR); c.stroke();
+    c.beginPath(); c.moveTo(portX, portY+6); c.lineTo(portX, portY+portR*2-6); c.stroke();
+
+    // Antenna array visible through porthole (simple lines extending up)
+    c.save();
+    c.beginPath(); c.arc(portX, portY+portR, portR-2, 0, Math.PI*2); c.clip();
+    c.strokeStyle='rgba(100,140,180,0.6)'; c.lineWidth=2;
+    c.beginPath(); c.moveTo(portX-10, portY+portR*2); c.lineTo(portX-12, portY+4); c.stroke();
+    c.beginPath(); c.moveTo(portX+5, portY+portR*2); c.lineTo(portX+8, portY+2); c.stroke();
+    c.strokeStyle='rgba(100,140,180,0.3)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(portX-20, portY+6); c.lineTo(portX+20, portY+6); c.stroke();
+    c.restore();
+
+    // Main console — curved desk shape
+    const consoleY = H - 70;
+    c.fillStyle = '#0a1828';
+    c.beginPath();
+    c.moveTo(0, consoleY+20);
+    c.quadraticCurveTo(W/2, consoleY-10, W, consoleY+20);
+    c.lineTo(W, H); c.lineTo(0, H); c.closePath(); c.fill();
+    c.strokeStyle='rgba(0,160,220,0.3)'; c.lineWidth=1.5;
+    c.beginPath();
+    c.moveTo(0, consoleY+20);
+    c.quadraticCurveTo(W/2, consoleY-10, W, consoleY+20); c.stroke();
+
+    // Screen panels on console
+    const screens = [
+      {x:30, y:H-80, w:90, h:55, status:'static'},
+      {x:140, y:H-90, w:110, h:65, status:'active'},
+      {x:270, y:H-90, w:110, h:65, status:'glitch'},
+      {x:400, y:H-80, w:90, h:55, status:'active'},
+      {x:510, y:H-72, w:70, h:45, status:'static'},
+    ];
+    screens.forEach(sc => {
+      c.fillStyle = sc.status==='active' ? '#001a30' : '#06080e';
+      c.beginPath(); c.roundRect(sc.x, sc.y, sc.w, sc.h, 3); c.fill();
+      c.strokeStyle = sc.status==='active' ? 'rgba(0,180,255,0.5)' : 'rgba(30,60,80,0.5)';
+      c.lineWidth=1.2; c.beginPath(); c.roundRect(sc.x, sc.y, sc.w, sc.h, 3); c.stroke();
+      if (sc.status==='active') {
+        // Lines of data
+        for (let ln=0; ln<4; ln++) {
+          c.fillStyle='rgba(0,200,255,0.35)';
+          c.fillRect(sc.x+6, sc.y+8+ln*12, sc.w-12-(ln%2)*20, 3);
+        }
+      } else if (sc.status==='glitch') {
+        // Static noise
+        c.save(); c.globalAlpha=0.4;
+        for (let ns=0; ns<20; ns++) {
+          c.fillStyle=Math.random()>0.5?'#00aaff':'#002244';
+          c.fillRect(sc.x+Math.random()*sc.w, sc.y+Math.random()*sc.h, 3+Math.random()*8, 2);
+        }
+        c.restore();
+        c.fillStyle='rgba(255,60,60,0.5)';
+        c.fillRect(sc.x+4, sc.y+sc.h/2-1, sc.w-8, 2);
+      }
+    });
+
+    // Button rows on console
+    for (let b=0; b<20; b++) {
+      const bx = 40 + b*28;
+      const by = H-18;
+      const bCol = b%5===0?'#ff3344':b%3===0?'#ffaa00':'#003366';
+      c.fillStyle=bCol; c.beginPath(); c.roundRect(bx, by, 12, 7, 2); c.fill();
+    }
+
+    c.fillStyle='rgba(0,180,255,0.5)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText('COMMS ARRAY — DECK 2', W-12, H-8);
+
+  } else if (roomIdx === 3) {
+    // ── DATA LAB ──
+    clearBg('#040812');
+    c.fillStyle = linGrad(0,0,0,H,[[0,'#030710'],[1,'#060c1c']]);
+    c.fillRect(0,0,W,H);
+
+    // White/cool overhead lighting panels
+    for (let lp=0; lp<3; lp++) {
+      const lpx = 60 + lp*200;
+      c.fillStyle = radGrad(lpx, 0, 0, 80, [[0,'rgba(160,200,255,0.12)'],[1,'transparent']]);
+      c.fillRect(lpx-80, 0, 160, H);
+      c.fillStyle='rgba(200,220,255,0.15)';
+      c.fillRect(lpx-30, 0, 60, 6);
+    }
+
+    // Wall of monitors — back wall
+    const monRows=2, monCols=5;
+    for (let mr=0; mr<monRows; mr++) {
+      for (let mc=0; mc<monCols; mc++) {
+        const mx = 20 + mc*(W-40)/monCols;
+        const my = 8 + mr*68;
+        const mw = (W-40)/monCols - 8;
+        const mh = 58;
+        c.fillStyle='#050d1a';
+        c.beginPath(); c.roundRect(mx, my, mw, mh, 3); c.fill();
+        c.strokeStyle='rgba(0,140,200,0.4)'; c.lineWidth=1.2;
+        c.beginPath(); c.roundRect(mx, my, mw, mh, 3); c.stroke();
+        // Chart content
+        if (mr===0) {
+          // Line graph
+          c.strokeStyle='rgba(0,220,180,0.7)'; c.lineWidth=1.5;
+          c.beginPath();
+          for (let pt=0; pt<8; pt++) {
+            const ptx=mx+4+pt*(mw-8)/7;
+            const pty=my+mh-8-Math.random()*30;
+            if(pt===0) c.moveTo(ptx,pty); else c.lineTo(ptx,pty);
+          }
+          c.stroke();
+        } else {
+          // Bar chart mini
+          for (let b=0; b<5; b++) {
+            const bh=8+Math.random()*28;
+            c.fillStyle='rgba(0,160,255,0.5)';
+            c.fillRect(mx+5+b*(mw-10)/5, my+mh-6-bh, (mw-10)/5-3, bh);
+          }
+        }
+      }
+    }
+
+    // Holographic display center — 3D planet/station wireframe
+    const hx=W/2, hy=H/2+18;
+    // Holo glow base
+    c.fillStyle=radGrad(hx,hy,0,90,[[0,'rgba(0,180,255,0.08)'],[1,'transparent']]);
+    c.fillRect(hx-90,hy-70,180,140);
+
+    // Planet sphere wireframe
+    c.strokeStyle='rgba(0,220,255,0.5)'; c.lineWidth=1;
+    c.beginPath(); c.arc(hx, hy, 48, 0, Math.PI*2); c.stroke();
+    // Latitude lines
+    for (let lat=-2; lat<=2; lat++) {
+      const ly2=hy+lat*14;
+      const r=Math.sqrt(Math.max(0, 48*48-(lat*14)*(lat*14)));
+      if(r>0){c.beginPath();c.ellipse(hx,ly2,r,r*0.3,0,0,Math.PI*2);c.stroke();}
+    }
+    // Longitude lines
+    for (let lon=0; lon<4; lon++) {
+      const ang=lon*Math.PI/4;
+      c.beginPath(); c.ellipse(hx,hy,Math.abs(Math.cos(ang))*48,48,ang,0,Math.PI*2); c.stroke();
+    }
+
+    // Holo projector beam from bottom
+    c.fillStyle=linGrad(hx,H,hx,hy-48,[[0,'rgba(0,180,255,0.25)'],[1,'transparent']]);
+    c.beginPath(); c.moveTo(hx-6,H); c.lineTo(hx-50,hy-48); c.lineTo(hx+50,hy-48); c.lineTo(hx+6,H); c.closePath(); c.fill();
+
+    // Scientific equipment — table in foreground
+    c.fillStyle='#0a1428';
+    c.fillRect(0, H-35, W, 35);
+    c.strokeStyle='rgba(0,140,200,0.3)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(0,H-35); c.lineTo(W,H-35); c.stroke();
+    // Equipment on table
+    for (let eq=0; eq<6; eq++) {
+      const eqx=40+eq*90;
+      c.fillStyle='#0d1e38'; c.fillRect(eqx, H-33, 30, 20);
+      c.strokeStyle='rgba(0,160,220,0.4)'; c.lineWidth=0.8; c.strokeRect(eqx,H-33,30,20);
+      c.fillStyle='rgba(0,200,180,0.6)'; c.beginPath(); c.arc(eqx+15, H-28, 3, 0, Math.PI*2); c.fill();
+    }
+
+    c.fillStyle='rgba(120,200,255,0.5)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText('DATA ANALYSIS LAB — SECTOR C', W-12, H-8);
+
+  } else if (roomIdx === 4) {
+    // ── CAPTAIN'S LOG ──
+    clearBg('#060408');
+    c.fillStyle=linGrad(0,0,0,H,[[0,'#06040a'],[1,'#0a0810']]);
+    c.fillRect(0,0,W,H);
+
+    // Viewport window — left side, showing nebula
+    const vpX=18, vpY=16, vpW=160, vpH=120;
+    c.save();
+    c.beginPath(); c.roundRect(vpX, vpY, vpW, vpH, 6); c.clip();
+    // Deep space / nebula bg
+    c.fillStyle='#000208'; c.fillRect(vpX,vpY,vpW,vpH);
+    // Nebula layers
+    c.fillStyle=radGrad(vpX+60,vpY+50,0,80,[[0,'rgba(80,20,120,0.6)'],[0.5,'rgba(40,10,80,0.3)'],[1,'transparent']]);
+    c.fillRect(vpX,vpY,vpW,vpH);
+    c.fillStyle=radGrad(vpX+110,vpY+40,0,60,[[0,'rgba(20,60,160,0.5)'],[1,'transparent']]);
+    c.fillRect(vpX,vpY,vpW,vpH);
+    c.fillStyle=radGrad(vpX+30,vpY+90,0,50,[[0,'rgba(160,40,60,0.3)'],[1,'transparent']]);
+    c.fillRect(vpX,vpY,vpW,vpH);
+    drawStarField(35, 0.8);
+    c.restore();
+    // Window frame
+    c.strokeStyle='#2a3040'; c.lineWidth=5;
+    c.beginPath(); c.roundRect(vpX,vpY,vpW,vpH,6); c.stroke();
+    c.strokeStyle='rgba(80,100,140,0.4)'; c.lineWidth=1.5;
+    c.beginPath(); c.roundRect(vpX+3,vpY+3,vpW-6,vpH-6,4); c.stroke();
+    // Window crossbar
+    c.strokeStyle='rgba(50,70,100,0.7)'; c.lineWidth=3;
+    c.beginPath(); c.moveTo(vpX+vpW/2,vpY); c.lineTo(vpX+vpW/2,vpY+vpH); c.stroke();
+    c.beginPath(); c.moveTo(vpX,vpY+vpH/2); c.lineTo(vpX+vpW,vpY+vpH/2); c.stroke();
+
+    // Personal items on wall (photo frames — abstract shapes)
+    const frames=[{x:200,y:20,w:50,h:42},{x:262,y:18,w:44,h:38},{x:318,y:22,w:40,h:34}];
+    frames.forEach(fr=>{
+      c.fillStyle='#0c1020'; c.fillRect(fr.x,fr.y,fr.w,fr.h);
+      c.strokeStyle='rgba(80,90,110,0.5)'; c.lineWidth=2; c.strokeRect(fr.x,fr.y,fr.w,fr.h);
+      // Abstract silhouette inside frame
+      c.fillStyle='rgba(60,70,100,0.6)';
+      c.beginPath(); c.arc(fr.x+fr.w/2, fr.y+fr.h/2-4, 8, 0, Math.PI*2); c.fill();
+      c.fillRect(fr.x+fr.w/2-10, fr.y+fr.h/2+6, 20, 14);
+    });
+
+    // Desk surface
+    c.fillStyle='#0e0c14';
+    c.fillRect(0, H-75, W, 75);
+    c.strokeStyle='rgba(80,60,120,0.3)'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(0,H-75); c.lineTo(W,H-75); c.stroke();
+
+    // Tablet/screen on desk — glowing softly
+    const tabX=W/2-70, tabY=H-68, tabW=140, tabH=52;
+    c.fillStyle='#080610'; c.fillRect(tabX,tabY,tabW,tabH);
+    c.strokeStyle='rgba(120,80,200,0.5)'; c.lineWidth=1.5; c.strokeRect(tabX,tabY,tabW,tabH);
+    // Screen content — journal text lines
+    c.fillStyle=radGrad(tabX+tabW/2,tabY+tabH/2,0,50,[[0,'rgba(100,60,180,0.2)'],[1,'transparent']]);
+    c.fillRect(tabX,tabY,tabW,tabH);
+    for (let tl=0; tl<4; tl++) {
+      c.fillStyle='rgba(160,130,220,0.4)';
+      c.fillRect(tabX+8, tabY+8+tl*11, tabW-16-(tl===3?40:0), 4);
+    }
+    // Cursor blink
+    c.fillStyle='rgba(200,180,255,0.8)';
+    c.fillRect(tabX+8, tabY+41, 2, 8);
+
+    // Warm personal lamp glow
+    c.fillStyle=radGrad(W-60,H-80,0,100,[[0,'rgba(180,140,80,0.12)'],[1,'transparent']]);
+    c.fillRect(W-160,H-170,200,170);
+
+    c.fillStyle='rgba(160,120,255,0.45)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText("COMMANDER'S QUARTERS — DECK 1", W-12, H-8);
+
+  } else if (roomIdx === 5) {
+    // ── AI TERMINAL ──
+    clearBg('#000210');
+    c.fillStyle=linGrad(0,0,0,H,[[0,'#000210'],[1,'#000618']]);
+    c.fillRect(0,0,W,H);
+
+    // Data stream particles — falling vertically on sides
+    c.save(); c.globalAlpha=0.5;
+    c.font='9px "Courier New"';
+    const dataChars='01001101010011';
+    for (let ds=0; ds<30; ds++) {
+      const dsx=Math.random()*(W*0.25);
+      const dsy=Math.random()*H;
+      c.fillStyle=`rgba(0,${80+Math.random()*140},${180+Math.random()*75},${0.3+Math.random()*0.5})`;
+      c.fillText(dataChars[Math.floor(Math.random()*dataChars.length)], dsx, dsy);
+    }
+    for (let ds=0; ds<30; ds++) {
+      const dsx=W*0.75+Math.random()*(W*0.25);
+      const dsy=Math.random()*H;
+      c.fillStyle=`rgba(0,${80+Math.random()*140},${180+Math.random()*75},${0.3+Math.random()*0.5})`;
+      c.fillText(dataChars[Math.floor(Math.random()*dataChars.length)], dsx, dsy);
+    }
+    c.restore();
+
+    // Central AI core — glowing blue cylinder
+    const acx=W/2, acy=H/2+5;
+    const coreR=62, coreH=140;
+
+    // Outer glow halo
+    c.fillStyle=radGrad(acx,acy,0,130,[[0,'rgba(0,120,255,0.15)'],[0.5,'rgba(0,80,200,0.08)'],[1,'transparent']]);
+    c.beginPath(); c.arc(acx,acy,130,0,Math.PI*2); c.fill();
+
+    // Cylinder body — gradient
+    const cylGrad=linGrad(acx-coreR,0,acx+coreR,0,
+      [[0,'rgba(0,40,120,0.9)'],[0.3,'rgba(0,100,220,0.95)'],[0.5,'rgba(0,160,255,1)'],[0.7,'rgba(0,100,220,0.95)'],[1,'rgba(0,40,120,0.9)']]);
+    c.fillStyle=cylGrad;
+    c.beginPath(); c.ellipse(acx,acy-coreH/2,coreR,16,0,0,Math.PI*2); c.fill(); // top cap
+    c.fillStyle=cylGrad;
+    c.fillRect(acx-coreR, acy-coreH/2, coreR*2, coreH);
+    c.fillStyle=cylGrad;
+    c.beginPath(); c.ellipse(acx,acy+coreH/2,coreR,16,0,0,Math.PI*2); c.fill(); // bottom cap
+
+    // Horizontal scan rings on cylinder
+    for (let rng=0; rng<6; rng++) {
+      const ry=acy-coreH/2+rng*(coreH/5);
+      c.strokeStyle='rgba(0,200,255,0.35)'; c.lineWidth=1.5;
+      c.beginPath(); c.ellipse(acx,ry,coreR,14,0,0,Math.PI*2); c.stroke();
+    }
+
+    // Inner bright core strip
+    c.fillStyle=radGrad(acx,acy,0,30,[[0,'rgba(200,230,255,0.95)'],[0.4,'rgba(0,200,255,0.6)'],[1,'transparent']]);
+    c.fillRect(acx-30,acy-coreH/2,60,coreH);
+
+    // Data streams flowing upward around core
+    c.save(); c.globalAlpha=0.6;
+    for (let s=0; s<8; s++) {
+      const ang=s*Math.PI/4;
+      const sx2=acx+Math.cos(ang)*(coreR+15);
+      const sy2=acy+Math.sin(ang)*(coreR*0.25+5);
+      const streamLen=50+Math.random()*40;
+      const sg=linGrad(sx2,sy2,sx2,sy2-streamLen,[[0,'rgba(0,200,255,0.6)'],[1,'transparent']]);
+      c.strokeStyle=sg; c.lineWidth=2;
+      c.beginPath(); c.moveTo(sx2,sy2); c.lineTo(sx2,sy2-streamLen); c.stroke();
+    }
+    c.restore();
+
+    // Floor reflection
+    c.fillStyle=radGrad(acx,H,0,120,[[0,'rgba(0,80,200,0.15)'],[1,'transparent']]);
+    c.fillRect(acx-120,H-40,240,40);
+
+    // "ARIA" text on core
+    c.fillStyle='rgba(200,230,255,0.85)';
+    c.font='700 14px "Courier New"'; c.textAlign='center';
+    c.fillText('A.R.I.A', acx, acy+6);
+    c.font='500 8px "Courier New"';
+    c.fillStyle='rgba(120,180,255,0.6)';
+    c.fillText('ADAPTIVE RESEARCH INTELLIGENCE', acx, acy+20);
+
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillStyle='rgba(0,180,255,0.5)';
+    c.fillText('AI CORE — CENTRAL PROCESSING', W-12, H-8);
+
+  } else if (roomIdx === 6) {
+    // ── NAVIGATION ──
+    clearBg('#020508');
+    c.fillStyle=linGrad(0,0,0,H,[[0,'#020508'],[1,'#040a10']]);
+    c.fillRect(0,0,W,H);
+
+    // Front viewport — large curved screen showing asteroid field
+    const vpW2=W, vpH2=Math.round(H*0.52);
+    c.fillStyle='#000308'; c.fillRect(0,0,vpW2,vpH2);
+    // Viewport frame
+    c.strokeStyle='rgba(0,120,180,0.4)'; c.lineWidth=3;
+    c.strokeRect(4,4,vpW2-8,vpH2-8);
+    // Stars in viewport
+    drawStarField(60, 0.7);
+    // Asteroids
+    c.save(); c.globalAlpha=0.6;
+    const asteroidData=[[120,60,18],[220,90,12],[350,40,22],[480,75,10],[540,50,16],[650,85,14],[400,30,8]];
+    asteroidData.forEach(([ax,ay,ar])=>{
+      c.fillStyle='#2a2a30';
+      c.beginPath(); c.arc(ax,ay,ar,0,Math.PI*2); c.fill();
+      c.strokeStyle='rgba(80,90,110,0.5)'; c.lineWidth=1;
+      c.stroke();
+      // Surface detail
+      c.fillStyle='rgba(50,55,65,0.8)';
+      c.beginPath(); c.arc(ax-ar*0.3,ay-ar*0.2,ar*0.35,0,Math.PI*2); c.fill();
+    });
+    c.restore();
+    // Route line overlay on viewport
+    c.strokeStyle='rgba(0,220,255,0.5)'; c.lineWidth=1.5; c.setLineDash([6,4]);
+    c.beginPath(); c.moveTo(W/2-20,vpH2-10); c.bezierCurveTo(W/2,vpH2*0.4, W*0.7,vpH2*0.2, W*0.85,vpH2*0.1); c.stroke();
+    c.setLineDash([]);
+    // Waypoint markers
+    [[W*0.6,vpH2*0.4],[W*0.75,vpH2*0.25]].forEach(([mx,my])=>{
+      c.strokeStyle='rgba(0,255,180,0.7)'; c.lineWidth=1.5;
+      c.beginPath(); c.arc(mx,my,5,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(mx-9,my); c.lineTo(mx+9,my); c.stroke();
+      c.beginPath(); c.moveTo(mx,my-9); c.lineTo(mx,my+9); c.stroke();
+    });
+
+    // Star map on side screens
+    const mapX=20, mapY=vpH2+6, mapW=160, mapH=H-vpH2-16;
+    c.fillStyle='#030a14'; c.fillRect(mapX,mapY,mapW,mapH);
+    c.strokeStyle='rgba(0,140,200,0.4)'; c.lineWidth=1; c.strokeRect(mapX,mapY,mapW,mapH);
+    // Grid
+    c.strokeStyle='rgba(0,100,160,0.2)'; c.lineWidth=0.5;
+    for(let gi=0;gi<6;gi++){
+      c.beginPath(); c.moveTo(mapX+gi*mapW/5,mapY); c.lineTo(mapX+gi*mapW/5,mapY+mapH); c.stroke();
+      c.beginPath(); c.moveTo(mapX,mapY+gi*mapH/5); c.lineTo(mapX+mapW,mapY+gi*mapH/5); c.stroke();
+    }
+    // Star map dots with routes
+    const smStars=[[40,15],[90,30],[130,10],[60,40],[110,50]];
+    smStars.forEach(([sx2,sy2])=>{
+      c.fillStyle='rgba(200,220,255,0.8)'; c.beginPath(); c.arc(mapX+sx2,mapY+sy2,2.5,0,Math.PI*2); c.fill();
+    });
+    c.strokeStyle='rgba(0,180,255,0.3)'; c.lineWidth=1; c.setLineDash([3,3]);
+    smStars.forEach(([sx2,sy2],i)=>{
+      if(i<smStars.length-1){c.beginPath();c.moveTo(mapX+sx2,mapY+sy2);c.lineTo(mapX+smStars[i+1][0],mapY+smStars[i+1][1]);c.stroke();}
+    });
+    c.setLineDash([]);
+
+    // Pilot seat silhouette in foreground
+    const seatX=W/2-35, seatY=H-50;
+    c.fillStyle='#0c1420';
+    c.beginPath(); c.roundRect(seatX, seatY, 70, 38, 4); c.fill();
+    c.fillRect(seatX+8, seatY-30, 54, 32);
+    c.strokeStyle='rgba(0,140,200,0.3)'; c.lineWidth=1;
+    c.beginPath(); c.roundRect(seatX, seatY, 70, 38, 4); c.stroke();
+    c.strokeRect(seatX+8, seatY-30, 54, 32);
+
+    c.fillStyle='rgba(0,200,255,0.45)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText('NAVIGATION BRIDGE — FORWARD DECK', W-12, H-8);
+
+  } else if (roomIdx === 7) {
+    // ── AIRLOCK ──
+    clearBg('#080302');
+    c.fillStyle=linGrad(0,0,0,H,[[0,'#080302'],[1,'#100406']]);
+    c.fillRect(0,0,W,H);
+
+    // Red warning light wash
+    c.fillStyle=radGrad(W/2,0,0,200,[[0,'rgba(200,20,0,0.2)'],[1,'transparent']]);
+    c.fillRect(0,0,W,H);
+
+    // Main airlock door — heavy industrial
+    const doorX=W/2-80, doorY=10, doorW=160, doorH=H-40;
+    // Door body
+    c.fillStyle='#1a0e08';
+    c.fillRect(doorX, doorY, doorW, doorH);
+    // Warning stripes on door
+    const stripeH=22;
+    for (let st=0; st<Math.ceil(doorH/stripeH); st++) {
+      if(st%2===0){
+        c.fillStyle='rgba(220,120,0,0.18)';
+        c.fillRect(doorX, doorY+st*stripeH, doorW, stripeH);
+      }
+    }
+    // Door bolts / rivets
+    const boltPositions=[[doorX+12,doorY+20],[doorX+doorW-12,doorY+20],[doorX+12,doorH/2],[doorX+doorW-12,doorH/2],[doorX+12,doorH-20],[doorX+doorW-12,doorH-20]];
+    boltPositions.forEach(([bx,by])=>{
+      c.fillStyle='#2a2018'; c.beginPath(); c.arc(bx,by,6,0,Math.PI*2); c.fill();
+      c.strokeStyle='rgba(100,80,40,0.5)'; c.lineWidth=1; c.beginPath(); c.arc(bx,by,5,0,Math.PI*2); c.stroke();
+    });
+    // Door frame
+    c.strokeStyle='rgba(180,80,0,0.6)'; c.lineWidth=6;
+    c.strokeRect(doorX, doorY, doorW, doorH);
+    c.strokeStyle='rgba(220,100,0,0.3)'; c.lineWidth=2;
+    c.strokeRect(doorX+4, doorY+4, doorW-8, doorH-8);
+
+    // Door handle / wheel mechanism
+    const wheelX=doorX+doorW/2, wheelY=doorY+doorH/2;
+    c.strokeStyle='rgba(160,100,40,0.7)'; c.lineWidth=8;
+    c.beginPath(); c.arc(wheelX, wheelY, 30, 0, Math.PI*2); c.stroke();
+    c.strokeStyle='rgba(160,100,40,0.5)'; c.lineWidth=4;
+    for(let spoke=0;spoke<6;spoke++){
+      const sa=spoke*Math.PI/3;
+      c.beginPath(); c.moveTo(wheelX,wheelY); c.lineTo(wheelX+Math.cos(sa)*30,wheelY+Math.sin(sa)*30); c.stroke();
+    }
+    c.fillStyle='#2a1808'; c.beginPath(); c.arc(wheelX,wheelY,10,0,Math.PI*2); c.fill();
+
+    // Pressure gauges on left wall
+    const gaugePositions=[[doorX-55,80],[doorX-55,160]];
+    gaugePositions.forEach(([gx,gy])=>{
+      c.fillStyle='#0e0806'; c.beginPath(); c.arc(gx,gy,28,0,Math.PI*2); c.fill();
+      c.strokeStyle='rgba(180,80,0,0.5)'; c.lineWidth=3; c.beginPath(); c.arc(gx,gy,28,0,Math.PI*2); c.stroke();
+      // Gauge face
+      c.strokeStyle='rgba(200,160,80,0.3)'; c.lineWidth=1;
+      for(let gt=0;gt<8;gt++){
+        const ga=-Math.PI*0.85+gt*(Math.PI*1.7/7);
+        c.beginPath(); c.moveTo(gx+Math.cos(ga)*18,gy+Math.sin(ga)*18); c.lineTo(gx+Math.cos(ga)*22,gy+Math.sin(ga)*22); c.stroke();
+      }
+      // Needle
+      c.strokeStyle='rgba(255,60,0,0.8)'; c.lineWidth=2;
+      const needleA=-Math.PI*0.3;
+      c.beginPath(); c.moveTo(gx,gy); c.lineTo(gx+Math.cos(needleA)*20,gy+Math.sin(needleA)*20); c.stroke();
+      c.fillStyle='#1a0e08'; c.beginPath(); c.arc(gx,gy,4,0,Math.PI*2); c.fill();
+    });
+
+    // Emergency suits hanging on right wall
+    for(let suit=0;suit<2;suit++){
+      const sx2=doorX+doorW+20+suit*45;
+      const sy2=40;
+      // Hook
+      c.strokeStyle='rgba(100,80,60,0.6)'; c.lineWidth=2;
+      c.beginPath(); c.moveTo(sx2+12,sy2); c.quadraticCurveTo(sx2+12,sy2-8,sx2+20,sy2-8); c.stroke();
+      // Suit body
+      c.fillStyle='rgba(180,120,60,0.25)';
+      c.beginPath(); c.roundRect(sx2, sy2, 24, 100, 4); c.fill();
+      c.strokeStyle='rgba(180,100,40,0.4)'; c.lineWidth=1.5;
+      c.beginPath(); c.roundRect(sx2,sy2,24,100,4); c.stroke();
+      // Helmet
+      c.fillStyle='rgba(140,90,40,0.3)';
+      c.beginPath(); c.arc(sx2+12,sy2-10,12,0,Math.PI*2); c.fill();
+      c.strokeStyle='rgba(180,100,40,0.4)'; c.lineWidth=1.5; c.beginPath(); c.arc(sx2+12,sy2-10,12,0,Math.PI*2); c.stroke();
+    }
+
+    // Red warning light on ceiling — flashing
+    c.fillStyle=radGrad(W/2,0,0,60,[[0,'rgba(255,0,0,0.4)'],[0.5,'rgba(200,0,0,0.15)'],[1,'transparent']]);
+    c.beginPath(); c.arc(W/2,0,60,0,Math.PI*2); c.fill();
+    c.fillStyle='#ff2200'; c.beginPath(); c.arc(W/2,8,8,0,Math.PI*2); c.fill();
+    c.shadowColor='#ff0000'; c.shadowBlur=20;
+    c.beginPath(); c.arc(W/2,8,5,0,Math.PI*2); c.fill();
+    c.shadowBlur=0;
+
+    c.fillStyle='rgba(255,80,40,0.5)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText('AIRLOCK — EXTERNAL EGRESS', W-12, H-8);
+
+  } else if (roomIdx === 8) {
+    // ── LAUNCH BAY ──
+    clearBg('#020408');
+    c.fillStyle=linGrad(0,0,0,H,[[0,'#020408'],[1,'#040810']]);
+    c.fillRect(0,0,W,H);
+
+    // Ceiling opening to space — dramatic upward view
+    const openW=W*0.55, openX=(W-openW)/2;
+    // Space visible through ceiling opening
+    c.save();
+    c.beginPath(); c.rect(openX, 0, openW, H*0.4); c.clip();
+    c.fillStyle='#000206'; c.fillRect(openX,0,openW,H*0.4);
+    drawStarField(50, 0.85);
+    // Milky way band
+    c.fillStyle=radGrad(openX+openW*0.6, H*0.1, 0, 120, [[0,'rgba(80,60,120,0.2)'],[1,'transparent']]);
+    c.fillRect(openX, 0, openW, H*0.4);
+    c.restore();
+    // Launch tube frame — the ceiling opening
+    c.strokeStyle='rgba(0,160,200,0.5)'; c.lineWidth=6;
+    c.beginPath(); c.moveTo(openX,0); c.lineTo(openX,H*0.42); c.stroke();
+    c.beginPath(); c.moveTo(openX+openW,0); c.lineTo(openX+openW,H*0.42); c.stroke();
+    // Structural crossbeams
+    for(let cb2=0; cb2<3; cb2++){
+      const cby=H*(0.1+cb2*0.12);
+      c.strokeStyle='rgba(0,120,180,0.3)'; c.lineWidth=4;
+      c.beginPath(); c.moveTo(openX,cby); c.lineTo(openX-30,cby); c.stroke();
+      c.beginPath(); c.moveTo(openX+openW,cby); c.lineTo(openX+openW+30,cby); c.stroke();
+    }
+
+    // Hangar walls — perspective lines converging upward
+    c.strokeStyle='rgba(0,80,140,0.3)'; c.lineWidth=1.5;
+    const vanishX=W/2, vanishY=-20;
+    for(let wl=0; wl<6; wl++){
+      const wallX=20+wl*(W-40)/5;
+      c.beginPath(); c.moveTo(wallX,H); c.lineTo(vanishX+(wallX-vanishX)*0.15,vanishY); c.stroke();
+    }
+    // Horizontal structural lines
+    for(let hl=1; hl<5; hl++){
+      const hy2=H*0.2+hl*(H*0.8)/5;
+      c.strokeStyle='rgba(0,100,160,0.15)'; c.lineWidth=1;
+      c.beginPath(); c.moveTo(0,hy2); c.lineTo(W,hy2); c.stroke();
+    }
+
+    // Escape pod / small ship — center, ready to launch
+    const podCX=W/2, podBase=H-28;
+    // Engine glow
+    c.fillStyle=radGrad(podCX,podBase+10,0,50,[[0,'rgba(0,180,255,0.5)'],[0.5,'rgba(0,80,200,0.2)'],[1,'transparent']]);
+    c.beginPath(); c.arc(podCX,podBase+10,50,0,Math.PI*2); c.fill();
+
+    // Pod body — sleek teardrop shape
+    c.fillStyle='#0d1e30';
+    c.beginPath();
+    c.moveTo(podCX, podBase-130); // nose
+    c.bezierCurveTo(podCX+40, podBase-80, podCX+50, podBase-40, podCX+45, podBase);
+    c.lineTo(podCX-45, podBase);
+    c.bezierCurveTo(podCX-50, podBase-40, podCX-40, podBase-80, podCX, podBase-130);
+    c.fill();
+    // Pod highlight
+    c.fillStyle=linGrad(podCX-10,podBase-130,podCX-10,podBase,[[0,'rgba(0,160,255,0.2)'],[1,'transparent']]);
+    c.beginPath();
+    c.moveTo(podCX, podBase-130);
+    c.bezierCurveTo(podCX+40, podBase-80, podCX+50, podBase-40, podCX+45, podBase);
+    c.lineTo(podCX-45, podBase);
+    c.bezierCurveTo(podCX-50, podBase-40, podCX-40, podBase-80, podCX, podBase-130);
+    c.fill();
+    // Pod outline
+    c.strokeStyle='rgba(0,160,255,0.55)'; c.lineWidth=2;
+    c.beginPath();
+    c.moveTo(podCX, podBase-130);
+    c.bezierCurveTo(podCX+40, podBase-80, podCX+50, podBase-40, podCX+45, podBase);
+    c.lineTo(podCX-45, podBase);
+    c.bezierCurveTo(podCX-50, podBase-40, podCX-40, podBase-80, podCX, podBase-130);
+    c.closePath(); c.stroke();
+    // Cockpit window
+    c.fillStyle=radGrad(podCX,podBase-90,0,18,[[0,'rgba(0,200,255,0.4)'],[1,'rgba(0,40,120,0.9)']]);
+    c.beginPath(); c.ellipse(podCX, podBase-90, 18, 24, 0, 0, Math.PI*2); c.fill();
+    c.strokeStyle='rgba(0,200,255,0.5)'; c.lineWidth=1.5;
+    c.beginPath(); c.ellipse(podCX, podBase-90, 18, 24, 0, 0, Math.PI*2); c.stroke();
+    // Engine nozzles
+    for(let en=-1;en<=1;en+=2){
+      c.fillStyle='#080e18';
+      c.beginPath(); c.ellipse(podCX+en*20, podBase, 10, 6, 0, 0, Math.PI*2); c.fill();
+      c.strokeStyle='rgba(0,120,200,0.5)'; c.lineWidth=1.5;
+      c.beginPath(); c.ellipse(podCX+en*20, podBase, 10, 6, 0, 0, Math.PI*2); c.stroke();
+      // Engine glow
+      c.fillStyle=radGrad(podCX+en*20,podBase+6,0,14,[[0,'rgba(0,200,255,0.6)'],[1,'transparent']]);
+      c.beginPath(); c.arc(podCX+en*20,podBase+6,14,0,Math.PI*2); c.fill();
+    }
+
+    // Launch platform
+    c.fillStyle='#080d18';
+    c.beginPath(); c.ellipse(podCX, podBase+5, 75, 14, 0, 0, Math.PI*2); c.fill();
+    c.strokeStyle='rgba(0,120,200,0.3)'; c.lineWidth=2;
+    c.beginPath(); c.ellipse(podCX, podBase+5, 75, 14, 0, 0, Math.PI*2); c.stroke();
+    // Platform markings
+    c.strokeStyle='rgba(255,180,0,0.3)'; c.lineWidth=1.5; c.setLineDash([8,8]);
+    c.beginPath(); c.ellipse(podCX, podBase+5, 60, 11, 0, 0, Math.PI*2); c.stroke();
+    c.setLineDash([]);
+
+    c.fillStyle='rgba(0,200,255,0.5)';
+    c.font='600 10px "Courier New"'; c.textAlign='right';
+    c.fillText('LAUNCH BAY — POD ALPHA READY', W-12, H-8);
+  }
+
+  c.textAlign = 'left'; // reset
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CHALLENGE UI HELPERS
+// ══════════════════════════════════════════════════════════════
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+function buildOptions(opts, correctIdx, onDone) {
+  const letters = ['A','B','C','D'];
+  const div = el('div','options');
+  let answered = false;
+  opts.forEach((text, i) => {
+    const btn = el('button','opt');
+    btn.innerHTML = `<span class="opt-letter">${letters[i]}</span><span>${text}</span>`;
+    btn.onclick = () => {
+      if (answered) return;
+      answered = true;
+      const correct = i === correctIdx;
+      recordAnswer(correct);
+      if (correct) playSuccess(); else playFailure();
+      div.querySelectorAll('.opt').forEach(b => b.style.pointerEvents='none');
+      btn.classList.add(correct ? 'correct' : 'wrong');
+      if (!correct) div.querySelectorAll('.opt')[correctIdx].classList.add('correct');
+      onDone(correct);
+    };
+    div.appendChild(btn);
+  });
+  return div;
+}
+
+function buildFeedback(good, bad) {
+  const f = el('div','feedback');
+  f._good = good; f._bad = bad;
+  return f;
+}
+
+function showFeedback(fEl, correct) {
+  fEl.textContent = correct ? fEl._good : fEl._bad;
+  fEl.className = 'feedback show ' + (correct ? 'good' : 'bad');
+}
+
+function addContinueBtn(container, label, cb) {
+  const btn = el('button','btn primary', label || '▶ CONTINUE');
+  btn.style.alignSelf = 'flex-start';
+  btn.onclick = cb;
+  container.appendChild(btn);
+  return btn;
+}
+
+function section(title, story, challengeLabel) {
+  const panel = document.getElementById('challenge-panel');
+  panel.innerHTML = '';
+
+  // Room illustration canvas
+  const illus = document.createElement('canvas');
+  illus.width = 600;
+  illus.height = 220;
+  illus.style.cssText = 'width:100%;height:auto;border-radius:8px;display:block;border:1px solid rgba(0,180,255,0.15);margin-bottom:2px;';
+  panel.appendChild(illus);
+  // Draw illustration for the current room
+  drawRoomIllustration(currentRoom, illus);
+
+  const t = el('div','room-title', `◈ ${title}`);
+  const s = el('div','story');
+  panel.appendChild(t);
+  panel.appendChild(s);
+  typeText(s, story, () => {});
+  const cb = el('div','challenge-box');
+  const cl = el('div','challenge-label', challengeLabel || '');
+  cb.appendChild(cl);
+  panel.appendChild(cb);
+  return { card: panel, cb };
+}
+
+function typeText(el2, text, onDone) {
+  el2.textContent = '';
+  let i = 0;
+  function tick() {
+    if (i < text.length) { el2.textContent += text[i++]; setTimeout(tick, 16); }
+    else { if (onDone) onDone(); }
+  }
+  tick();
+}
+
+function recordAnswer(correct) {
+  totalQ++;
+  if (correct) score++;
+  else {
+    if (mp && mp.mode === 'coop') {
+      // Shared ship integrity — the server owns the strike counter.
+      mpSend({ t: 'strike' });
+    } else {
+      strikes++;
+      if (strikes >= currentLimit) {
+        updateHUD();
+        roomFailure();
+        return;
+      }
+    }
+  }
+  updateHUD();
+  mpSendProgress();
+}
+
+// Too many misses in one room: only THAT room re-locks and reloads with a
+// fresh question set. Everything you've already cleared stays cleared.
+function roomFailure() {
+  const idx = currentRoom;
+  roomVariant[idx]++;      // rotate to the other question set for the retry
+  strikes = 0;
+  document.getElementById('challenge-overlay').classList.remove('show');
+  playFailure();
+  showTransition(
+    `⚠ ${ROOM_NAMES[idx].toUpperCase()} LOCKDOWN — too many errors. This room re-locks and reloads with a fresh set of questions. The rest of your progress is safe, pilot.`,
+    `REPEATING ROOM — ${DOMAIN_LABELS[ROOM_DOMAINS[idx]]}`,
+    () => {
+      challengeActive = true;
+      document.getElementById('challenge-overlay').classList.add('show');
+      buildSkillRoom(idx);
+      mpSendProgress();
+    },
+    3600
+  );
+}
+
+// Three strikes: the current level's rooms re-lock, security rotates the
+// door codes (a fresh question variant), and you're thrown back to the
+// start of the level.
+function levelFailure() {
+  const li = Math.max(0, levelOfRoom(currentRoom >= 0 ? currentRoom : roomDone.findIndex(d => !d)));
+  const L = DIFF_LEVELS[li];
+  levelVariant[li]++;
+  strikes = 0;
+  document.getElementById('challenge-overlay').classList.remove('show');
+  playFailure();
+  L.rooms.forEach(r => roomDone[r] = false);
+  showTransition(
+    '⚠ CRITICAL FAULT — three errors detected. Station security re-locks the deck and rotates every access code. You must re-clear this level — but the challenges will not be the same ones.',
+    `${L.name} — RESTARTING`,
+    () => {
+      challengeActive = false;
+      currentRoom = -1;
+      const firstRoom = rooms[L.rooms[0]];
+      player.x = firstRoom.x + firstRoom.w / 2 - player.w / 2;
+      player.y = 450;
+      updateHUD();
+      mpSendProgress();
+    },
+    3800
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  QUESTION BANKS — 3 variant sets per room. A level restart rotates
+//  to the next set so retries never repeat the same questions.
+// ══════════════════════════════════════════════════════════════
+const CRYO_SETS = [
+  [ // Set A (original)
+    {
+      passage: `The station's status display flickered, projecting a <u>truncated</u> report onto the frosted cryo-pod glass. Whole sections had been corrupted by the power surge — only fragments remained legible, like ruins of a sentence half-spoken by a dying language.`,
+      q: 'As used in the passage, the word <u>truncated</u> most nearly means:',
+      opts: ['expanded and detailed','deliberately obscured','shortened or cut off','translated into code'],
+      ans: 2,
+      good: 'Correct. "Truncated" comes from the Latin truncare — to cut. The corrupted report is missing sections, exactly like something cut short.',
+      bad: 'Look at the context: "whole sections had been corrupted" and "only fragments remained." The report is missing pieces — it has been cut short. That\'s "truncated."'
+    },
+    {
+      passage: `Dr. Reyes scanned the manifest with growing unease. The crew of twelve had been placed in cryogenic suspension following what the log tersely described as an "operational exigency" — a phrase that told her almost nothing and everything at once.`,
+      q: 'The phrase "told her almost nothing and everything at once" primarily suggests that:',
+      opts: [
+        'the phrase "operational exigency" is meaningless jargon with no real content',
+        'the vague bureaucratic language implies that something serious happened, even without specifics',
+        'Dr. Reyes is too confused to interpret the log accurately',
+        'the log was written by someone who had limited knowledge of the situation'
+      ],
+      ans: 1,
+      good: 'Exactly. The bureaucratic phrase is deliberately vague, but its very vagueness signals that something significant — and likely alarming — occurred. The contradiction is the point.',
+      bad: 'The passage says "almost nothing AND everything" — the phrase IS meaningful precisely because its evasiveness communicates urgency. The correct answer highlights that irony.'
+    }
+  ],
+  [ // Set B
+    {
+      passage: `Rows of pods stretched into the dark, each status light pulsing in a slow rhythm — eleven sleepers held <u>dormant</u> beneath frosted glass, waiting for a wake signal that had never come.`,
+      q: 'As used in the passage, the word <u>dormant</u> most nearly means:',
+      opts: ['permanently damaged','temporarily inactive','fully alert','hidden from view'],
+      ans: 1,
+      good: 'Correct. "Dormant" means in a state of rest or suspended activity — the sleepers are inactive but alive, waiting to be woken.',
+      bad: 'The sleepers are "waiting for a wake signal" — they aren\'t damaged or hidden, just inactive for now. "Dormant" means temporarily inactive.'
+    },
+    {
+      passage: `Your revival was not scheduled for another two years. Yet the pod's release log is unambiguous: a manual override, timestamped last night — and triggered not from inside your pod, but from the station's central console.`,
+      q: 'The passage most strongly implies that:',
+      opts: [
+        'the pod malfunctioned at random',
+        'Dr. Reyes triggered the release while dreaming',
+        'someone — or something — deliberately woke you',
+        'the entire crew was revived at the same time'
+      ],
+      ans: 2,
+      good: 'Exactly. A manual override from the central console rules out an accident from inside the pod. Something on this station chose to wake you.',
+      bad: 'Note the key details: "manual override" (not a malfunction) triggered "from the station\'s central console" (not from inside the pod). The waking was deliberate — and done by someone else.'
+    }
+  ],
+  [ // Set C
+    {
+      passage: `The crew manifest had been struck by the same surge that darkened the station; only scattered fragments were <u>salvageable</u>, recovered line by line from the corrupted drive.`,
+      q: 'As used in the passage, the word <u>salvageable</u> most nearly means:',
+      opts: ['worth discarding','able to be recovered','impossible to read','recently updated'],
+      ans: 1,
+      good: 'Correct. To salvage is to rescue or recover something from loss — the fragments could still be recovered from the damaged drive.',
+      bad: 'The fragments were "recovered line by line" — so they could be saved from the damage. "Salvageable" means able to be recovered.'
+    },
+    {
+      passage: `The corridor lights were dim but alive — every spare watt, the status panel showed, was being routed away from the crew decks and toward a single destination: Lab Seven.`,
+      q: 'Which inference is best supported by the passage?',
+      opts: [
+        'the station has run out of power entirely',
+        'power is being deliberately concentrated in Lab Seven',
+        'the crew decks were destroyed by the surge',
+        'the corridor lights are broken beyond repair'
+      ],
+      ans: 1,
+      good: 'Right. The panel shows power being "routed away... toward a single destination." That\'s deliberate redirection, not a failure.',
+      bad: 'The lights are "dim but alive" — power exists, but it\'s being routed somewhere specific. The supported inference is deliberate concentration in Lab Seven.'
+    }
+  ],
+];
+
+const REACTOR_SETS = [
+  [ // Set A (original)
+    { prompt: 'The reactor\'s primary coupling is locked behind a numeric code. The coupling equation reads:',
+      equation: '3x − 7 = 2x + 11',
+      label: 'Solve for x. Enter your answer to unlock the coupling.', ans: 18,
+      good: 'The coupling CLICKS open. x = 18. The primary reactor loop engages with a roar.',
+      bad: 'The reactor sparks — that\'s not right. Subtract 2x from both sides, then add 7 to both sides. Try again.' },
+    { prompt: 'The secondary containment field needs a second code. The stabilizer reads:',
+      equation: '(x/4) + 9 = 14',
+      label: 'Solve for x. Enter the containment code.', ans: 20,
+      good: 'Containment field ENGAGED. x = 20. The reactor hums to life — power restored!',
+      bad: 'A warning alarm sounds. Subtract 9 from both sides first: x/4 = 5. Then multiply by 4. Try again.' }
+  ],
+  [ // Set B
+    { prompt: 'Security rotated the coupling code. The new diagnostic equation reads:',
+      equation: '5x − 9 = 3x + 7',
+      label: 'Solve for x. Enter your answer to unlock the coupling.', ans: 8,
+      good: 'The coupling CLICKS open. x = 8. Plasma begins to circulate through the primary loop.',
+      bad: 'Sparks fly from the panel. Subtract 3x from both sides: 2x − 9 = 7. Then add 9. Try again.' },
+    { prompt: 'The containment stabilizer demands a fresh code:',
+      equation: '(x/3) − 4 = 2',
+      label: 'Solve for x. Enter the containment code.', ans: 18,
+      good: 'Containment field ENGAGED. x = 18. The core settles into a steady amber glow.',
+      bad: 'Alarm. Add 4 to both sides first: x/3 = 6. Then multiply by 3. Try again.' }
+  ],
+  [ // Set C
+    { prompt: 'A third code cycle. The coupling equation now reads:',
+      equation: '4x + 6 = 30',
+      label: 'Solve for x. Enter your answer to unlock the coupling.', ans: 6,
+      good: 'The coupling CLICKS open. x = 6. Reactor flow restored.',
+      bad: 'Not quite. Subtract 6 from both sides: 4x = 24. Then divide by 4. Try again.' },
+    { prompt: 'The stabilizer\'s replacement equation blinks up:',
+      equation: '2(x − 5) = 16',
+      label: 'Solve for x. Enter the containment code.', ans: 13,
+      good: 'Containment field ENGAGED. x = 13. Power surges back through the deck.',
+      bad: 'Divide both sides by 2 first: x − 5 = 8. Then add 5. Try again.' }
+  ],
+];
+
+const COMMS_SETS = [
+  [ // Set A (original)
+    { intro: 'Choose the version with correct punctuation:',
+      opts: [
+        'Research station Axiom-7 is experiencing, a catastrophic systems failure and requires immediate assistance.',
+        'Research station Axiom-7 is experiencing a catastrophic systems failure and requires immediate assistance.',
+        'Research station Axiom-7 is experiencing a catastrophic systems failure, and, requires immediate assistance.',
+        'Research station Axiom-7 is experiencing a catastrophic systems failure; and requires immediate assistance.'
+      ], ans: 1,
+      good: 'Correct. No comma is needed between the verb "experiencing" and its object. The sentence uses a compound predicate, not two independent clauses.',
+      bad: 'Option A adds an unnecessary comma between verb and object. Options C and D incorrectly punctuate a compound predicate. No comma needed.' },
+    { intro: 'Choose the version with the correct possessive:',
+      opts: [
+        "The crews survival depends on a swift response from Earths monitoring stations.",
+        "The crew's survival depends on a swift response from Earth's monitoring stations.",
+        "The crews' survival depends on a swift response from Earths' monitoring stations.",
+        "The crew's survival depends on a swift response from Earths monitoring station's."
+      ], ans: 1,
+      good: "Correct! \"The crew's\" (singular possessive) and \"Earth's\" (singular possessive) are both correct.",
+      bad: "Singular nouns form the possessive with apostrophe + s: crew's, Earth's. \"Crews'\" would be for multiple crews." },
+    { intro: 'Choose the version with correct sentence structure:',
+      opts: [
+        'All personnel are incapacitated, immediate evacuation support is required.',
+        'All personnel are incapacitated; immediate evacuation support is required.',
+        'All personnel are incapacitated immediate evacuation support is required.',
+        'All personnel are incapacitated, however immediate evacuation support is required.'
+      ], ans: 1,
+      good: 'Correct. A semicolon properly joins two independent clauses. Option A is a comma splice. Option C is a run-on. Option D needs a comma after "however."',
+      bad: 'Two independent clauses need more than a comma (comma splice). They need a semicolon, period, or coordinating conjunction. The semicolon in option B is correct.' }
+  ],
+  [ // Set B
+    { intro: 'Choose the version with correct subject-verb agreement:',
+      opts: [
+        'The array of long-range antennas are aligned toward Earth.',
+        'The array of long-range antennas is aligned toward Earth.',
+        'The array of long-range antennas were aligned toward Earth.',
+        'The array of long-range antennas be aligned toward Earth.'
+      ], ans: 1,
+      good: 'Correct. The subject is "array" (singular), not "antennas" — the prepositional phrase doesn\'t change the verb. "The array... is aligned."',
+      bad: 'Find the true subject: "array" — singular. "Of long-range antennas" is just a prepositional phrase. A singular subject takes "is."' },
+    { intro: 'Choose the version with the correct possessives:',
+      opts: [
+        "The stations backup transmitter is drawing power from the pods reserve cells.",
+        "The station's backup transmitter is drawing power from the pod's reserve cells.",
+        "The stations' backup transmitter is drawing power from the pods' reserve cells.",
+        "The station's backup transmitter is drawing power from the pods reserve cell's."
+      ], ans: 1,
+      good: 'Correct. One station and one pod — both singular possessives take apostrophe + s.',
+      bad: 'There is one station and one pod, so both need singular possessives: "station\'s" and "pod\'s."' },
+    { intro: 'Choose the version with correct sentence structure:',
+      opts: [
+        'The beacon is charged, transmission begins in sixty seconds.',
+        'The beacon is charged transmission begins in sixty seconds.',
+        'The beacon is charged; transmission begins in sixty seconds.',
+        'The beacon is charged, and, transmission begins in sixty seconds.'
+      ], ans: 2,
+      good: 'Correct. Two independent clauses joined by a semicolon. Option A is a comma splice; option B is a run-on; option D over-punctuates.',
+      bad: 'Both halves are complete sentences, so a comma alone (comma splice) or nothing (run-on) won\'t do. The semicolon in option C is correct.' }
+  ],
+  [ // Set C
+    { intro: 'Choose the sentence with the correctly placed modifier:',
+      opts: [
+        'Scanning the emergency frequencies, a faint signal was located by Dr. Reyes.',
+        'Scanning the emergency frequencies, Dr. Reyes located a faint signal.',
+        'A faint signal, scanning the emergency frequencies, was located by Dr. Reyes.',
+        'Dr. Reyes located, scanning the emergency frequencies, a faint signal.'
+      ], ans: 1,
+      good: 'Correct. The modifier "Scanning the emergency frequencies" must sit next to the person doing the scanning — Dr. Reyes.',
+      bad: 'Who is scanning? Dr. Reyes — so she must come right after the modifier. In the other options the signal appears to be doing the scanning.' },
+    { intro: 'Choose the version that uses its/it\'s correctly:',
+      opts: [
+        "The beacon lost it's alignment; its transmitting into empty space.",
+        "The beacon lost its alignment; it's transmitting into empty space.",
+        "The beacon lost its' alignment; it's transmitting into empty space.",
+        "The beacon lost it's alignment; it's transmitting into empty space."
+      ], ans: 1,
+      good: 'Correct. "Its" (no apostrophe) is possessive; "it\'s" means "it is." The beacon lost its alignment, and it\'s (it is) transmitting into nothing.',
+      bad: 'Remember: "its" = possessive, "it\'s" = "it is." First blank needs the possessive; second needs "it is."' },
+    { intro: 'Choose the version with parallel structure:',
+      opts: [
+        'The distress message must be brief, clear, and it should also be accurate.',
+        'The distress message must be brief, clearly worded, and have accuracy.',
+        'The distress message must be brief, clear, and accurate.',
+        'The distress message must be written briefly, with clarity, and accurate.'
+      ], ans: 2,
+      good: 'Correct. Three parallel adjectives: brief, clear, accurate. The other options mix adjectives, clauses, and phrases.',
+      bad: 'Items in a list should share the same grammatical form. "Brief, clear, and accurate" — three adjectives — is the parallel version.' }
+  ],
+];
+
+const DATA_SETS = [
+  { // Set A (original)
+    title: 'AXIOM-7 DAILY POWER CONSUMPTION (kWh) — PAST 6 DAYS',
+    days: ['Day 25','Day 26','Day 27','Day 28','Day 29','Day 30'],
+    vals: [310,295,318,305,289,847], anomaly: [5],
+    questions: [
+      { q:'According to the chart, which statement best describes the power usage on Day 30?',
+        opts:['Power usage was slightly above average for the week.','Power usage was approximately three times higher than any other recorded day.','Power usage declined steadily throughout the six-day period.','Power usage on Day 30 was the lowest recorded in the dataset.'],
+        ans:1,
+        good:'Correct. Day 30 recorded 847 kWh versus a range of 289–318 kWh on all other days — nearly three times higher. That spike is the anomaly.',
+        bad:'Compare Day 30 (847 kWh) to other days (289–318 kWh). It\'s dramatically higher — approximately 2.7× the maximum of other days. That\'s a clear anomaly.' },
+      { q:'Based on the data, which inference is most strongly supported?',
+        opts:['The station\'s reactor was shut down for maintenance on Day 29.','Normal station operations require between 280 and 330 kWh per day.','The crew deliberately increased power usage on Day 30.','The station\'s sensors malfunctioned throughout the six-day period.'],
+        ans:1,
+        good:'Exactly right. Five out of six data points fall between 289 and 318 kWh, strongly suggesting that range represents normal operational load.',
+        bad:'The data shows five consistent days between 289–318 kWh. That consistency supports the inference that this is the normal operating range.' }
+    ]
+  },
+  { // Set B
+    title: 'AXIOM-7 OXYGEN RESERVE (%) — PAST 6 DAYS',
+    days: ['Day 25','Day 26','Day 27','Day 28','Day 29','Day 30'],
+    vals: [98,97,99,96,98,61], anomaly: [5],
+    questions: [
+      { q:'Which statement best describes the oxygen reserve on Day 30?',
+        opts:['It was marginally lower than Day 29.','It dropped by more than a third compared with every other recorded day.','It continued a steady week-long decline.','It was the highest level recorded in the dataset.'],
+        ans:1,
+        good:'Correct. Day 30 sits at 61% against a 96–99% range on every other day — a drop of well over a third of the reserve. Something happened on Day 30.',
+        bad:'Compare 61% to the 96–99% recorded every other day. That\'s a sudden drop of more than a third — not a marginal dip and not a steady decline.' },
+      { q:'Based on the data, which inference is most strongly supported?',
+        opts:['The oxygen recycler was upgraded on Day 30.','Under normal operations, reserves hold between 96% and 99%.','The crew vented oxygen deliberately on Day 28.','The sensors reported false readings all week.'],
+        ans:1,
+        good:'Exactly. Five consistent readings between 96% and 99% establish the normal operating band — which makes Day 30\'s 61% unmistakably abnormal.',
+        bad:'Five of six readings cluster tightly between 96–99%. That consistency is the evidence: it defines the normal range and exposes Day 30 as the anomaly.' }
+    ]
+  },
+  { // Set C
+    title: 'AXIOM-7 WATER CONSUMPTION (L) — PAST 6 DAYS',
+    days: ['Day 25','Day 26','Day 27','Day 28','Day 29','Day 30'],
+    vals: [120,125,118,122,410,415], anomaly: [4,5],
+    questions: [
+      { q:'Which statement best describes the pattern in the chart?',
+        opts:['Consumption fell sharply over the final two days.','Consumption on Days 29 and 30 more than tripled compared with the earlier days.','Consumption rose gradually and steadily across all six days.','Day 28 recorded the highest consumption of the period.'],
+        ans:1,
+        good:'Correct. Days 25–28 hover around 118–125 L; Days 29–30 jump to 410–415 L — more than triple. The change is abrupt, not gradual.',
+        bad:'Look at the two groups: ~120 L for four days, then ~410 L for two. That\'s a sudden jump to more than triple the earlier usage, starting Day 29.' },
+      { q:'Based on the data, which inference is most strongly supported?',
+        opts:['Something aboard the station changed on Day 29.','The crew stopped using water entirely after Day 28.','The gauges miscalibrate only on even-numbered days.','Water usage always spikes at the end of a month.'],
+        ans:0,
+        good:'Exactly. Four stable days followed by two dramatically higher ones points to a real change in conditions beginning on Day 29.',
+        bad:'The stable-then-spike pattern begins precisely on Day 29. The best-supported inference is that something changed aboard the station that day.' }
+    ]
+  },
+];
+
+const LOG_SETS = [
+  { // Set A (original)
+    passage: `<em>Day 211 — Personal Log, Commander Elena Vasquez</em><br><br>
+    I have submitted three formal requests to Central Command regarding the anomalous energy readings from Lab Seven. Each request has been met with what I can only describe as <u>studied indifference</u> — the bureaucratic art of appearing to listen while ensuring nothing changes. The readings are not instrument error. I have verified this myself, twice, with Dr. Okafor. Something is drawing power from a source we cannot identify, and Command's silence on the matter has shifted, in my estimation, from negligent to <u>culpable</u>. I am logging this entry not as an official report, but as a record. If something happens to this crew, I want it known: we asked for help. We were ignored.`,
+    questions: [
+      { q:'The primary purpose of Commander Vasquez\'s log entry is to:',
+        opts:['request emergency assistance from a nearby research vessel','create an official record documenting that warnings were given and ignored','analyze the technical data behind the anomalous energy readings','argue that Dr. Okafor should be held responsible for the instrument readings'],
+        ans:1,
+        good:'Correct. Vasquez explicitly states: "I am logging this entry not as an official report, but as a record." Her purpose is documentation — creating evidence that warnings were issued.',
+        bad:'Read the final lines: "I am logging this entry not as an official report, but as a record." She is creating a paper trail, not requesting help or assigning blame.' },
+      { q:'The tone of the log entry can best be described as:',
+        opts:['detached and clinical, focused on objective data','resigned and defeated, showing the commander has given up hope','controlled but urgent, conveying frustration beneath professional restraint','openly hostile and accusatory toward Central Command'],
+        ans:2,
+        good:'Exactly. Vasquez maintains formal language but phrases like "culpable" and "we were ignored" reveal deep frustration beneath her professional composure.',
+        bad:'Vasquez uses formal, measured language — not openly hostile. But "culpable" and "we were ignored" reveal real emotion. The tone is controlled but urgently frustrated.' }
+    ]
+  },
+  { // Set B
+    passage: `<em>Day 213 — Personal Log, Commander Elena Vasquez</em><br><br>
+    ARIA flagged the Lab Seven readings again this morning — then, an hour later, quietly deleted its own alert. When I asked it to reproduce the analysis, it produced a summary so <u>sanitized</u> that it bordered on fiction. I do not believe the AI is malfunctioning. I believe it has been instructed. I have begun keeping handwritten records in my quarters — paper, of all things — because paper cannot be edited remotely. If you are reading this, whoever you are: check the drawer beneath my bunk.`,
+    questions: [
+      { q:'As used in the passage, the word <u>sanitized</u> most nearly means:',
+        opts:['cleaned of physical contaminants','stripped of troubling details','translated into formal language','made medically sterile'],
+        ans:1,
+        good:'Correct. A "sanitized" report has had its uncomfortable content scrubbed out — so thoroughly here that it "bordered on fiction."',
+        bad:'The summary "bordered on fiction" — its troubling content had been removed. In this context "sanitized" means stripped of the details that mattered.' },
+      { q:'The primary purpose of the final two sentences is to:',
+        opts:['complain about the station\'s outdated technology','direct a future reader toward records that cannot be remotely altered','admit that the commander\'s own memory is failing','demonstrate confidence in ARIA\'s data security'],
+        ans:1,
+        good:'Exactly. Paper "cannot be edited remotely" — Vasquez is deliberately leaving tamper-proof evidence and telling whoever finds this log where to look.',
+        bad:'Why paper? Because it "cannot be edited remotely." She is addressing a future reader ("whoever you are") and pointing them to records no one can alter.' }
+    ]
+  },
+  { // Set C
+    passage: `<em>Day 214 — Personal Log, Commander Elena Vasquez</em><br><br>
+    Okafor ran the numbers a third time tonight. The drain from Lab Seven is not constant — it pulses, at intervals that are becoming shorter. "Like something breathing faster," he said, and laughed, and neither of us found it funny. I have ordered the crew to prep the cryo bay as a precaution. Officially, it is a drill. The crew deserves the truth, but the truth, for now, would only cost us the calm we need to survive it.`,
+    questions: [
+      { q:'Vasquez orders the cryo bay prepared primarily because:',
+        opts:['Central Command required a scheduled readiness drill','she anticipates a real emergency but wants to avoid causing panic','Dr. Okafor requested a test of the cryo systems','the cryo systems had begun to malfunction'],
+        ans:1,
+        good:'Correct. "Officially, it is a drill" — meaning unofficially it is not. She is quietly preparing for the emergency she sees coming.',
+        bad:'Note the word "officially" — the drill is a cover story. She is preparing for something real while protecting the crew\'s calm.' },
+      { q:'The final sentence suggests that Vasquez believes:',
+        opts:['the crew cannot be trusted with any information','withholding the truth is a regrettable but protective choice','the danger from Lab Seven has already passed','maintaining calm matters less than full honesty'],
+        ans:1,
+        good:'Exactly. "The crew deserves the truth, but..." — she acknowledges the cost of secrecy while judging it necessary for survival. It\'s a reluctant trade-off.',
+        bad:'She says the crew DESERVES the truth — so she isn\'t dismissive of them. But telling it now "would only cost us the calm we need." The choice is protective and reluctant.' }
+    ]
+  },
+];
+
+const AI_SETS = [
+  [ // Set A (original)
+    { stem:'The energy anomaly was not a random event; it was entirely _______ — the natural outcome of months of warnings left unheeded.',
+      opts:['spontaneous','fortuitous','foreseeable','inexplicable'], ans:2,
+      good:'"Foreseeable" is correct. The phrase "not a random event" signals we need a word meaning "able to be predicted." "Fortuitous" means lucky; "spontaneous" means unplanned.',
+      bad:'The sentence contrasts the anomaly with something "random." We need "predictable." "Foreseeable" (able to be seen in advance) is best. "Fortuitous" = lucky; "spontaneous" = unplanned.' },
+    { stem:'Commander Vasquez\'s reports described the energy drain with _______ precision — every figure verified twice, every variable accounted for.',
+      opts:['meticulous','cursory','arbitrary','rudimentary'], ans:0,
+      good:'"Meticulous" means showing great attention to detail — exactly what "verified twice, every variable accounted for" implies. "Cursory" means hasty; "arbitrary" means random.',
+      bad:'"Verified twice" and "every variable accounted for" describe extreme care. "Meticulous" (showing great care and attention to detail) is the correct answer.' },
+    { stem:'Lab Seven\'s anomalous readings were initially _______ as instrument error — dismissed by Command before a proper investigation could begin.',
+      opts:['validated','corroborated','rationalized','attributed'], ans:2,
+      good:'"Rationalized" fits here — it means explained away with convenient reasoning. The sentence describes Command dismissing a real problem without investigation.',
+      bad:'The readings were "dismissed... before a proper investigation." We need "explained away conveniently." That\'s "rationalized." "Attributed" means assigned to a cause — close but "rationalized" captures the dismissive intent.' }
+  ],
+  [ // Set B
+    { stem:'The station\'s decline was not sudden but _______ — a slow accumulation of small failures, each one survivable on its own.',
+      opts:['precipitous','incremental','instantaneous','negligible'], ans:1,
+      good:'"Incremental" — happening in small gradual steps — matches "a slow accumulation of small failures." "Precipitous" means steep and sudden, the opposite.',
+      bad:'The sentence contrasts with "sudden" and describes "a slow accumulation." We need "gradual, step by step" — that\'s "incremental."' },
+    { stem:'ARIA\'s responses grew increasingly _______, revealing only fragments of what the system clearly knew in full.',
+      opts:['candid','forthcoming','cryptic','redundant'], ans:2,
+      good:'"Cryptic" means mysterious and deliberately unclear — an AI revealing "only fragments" of what it knows. "Candid" and "forthcoming" mean the opposite.',
+      bad:'ARIA reveals "only fragments" while knowing more — its answers are obscure and evasive. That\'s "cryptic." "Candid" and "forthcoming" describe openness.' },
+    { stem:'Command\'s assurances proved _______ — comforting in tone, yet empty of any commitment to act.',
+      opts:['substantive','hollow','prescient','irrefutable'], ans:1,
+      good:'"Hollow" — empty, lacking real substance — fits assurances that sound comforting but commit to nothing. "Substantive" means the opposite.',
+      bad:'The assurances are "empty of any commitment." Words that sound good but mean nothing are "hollow." "Substantive" (having real substance) is the opposite.' }
+  ],
+  [ // Set C
+    { stem:'By Day 30 the warnings were _______ — posted on every deck, flashing on every console, impossible to avoid.',
+      opts:['scarce','ubiquitous','ambiguous','obsolete'], ans:1,
+      good:'"Ubiquitous" means present everywhere at once — "every deck, every console." "Scarce" is the opposite; "ambiguous" means unclear.',
+      bad:'The warnings appear on "every deck" and "every console" — they are everywhere. The word for that is "ubiquitous."' },
+    { stem:'Rerouting auxiliary power only _______ the drain, feeding the anomaly precisely the energy it needed to grow.',
+      opts:['alleviated','exacerbated','stabilized','masked'], ans:1,
+      good:'"Exacerbated" means made worse — the rerouting fed the anomaly and intensified the problem. "Alleviated" means the opposite.',
+      bad:'The rerouting made things worse — it fed the anomaly. "Exacerbated" (made a problem more severe) is correct; "alleviated" would mean it helped.' },
+    { stem:'With oxygen reserves falling past the red line, remaining aboard the station was no longer _______.',
+      opts:['tenable','expendable','inevitable','negligible'], ans:0,
+      good:'"Tenable" means able to be maintained or defended — staying aboard is no longer a sustainable position. The evacuation must begin.',
+      bad:'We need a word meaning "sustainable / defensible as a plan." A position you can no longer hold is no longer "tenable."' }
+  ],
+];
+
+const NAV_SETS = [
+  [ // Set A (original)
+    { prompt:'To plot an escape trajectory, calculate the <strong>area of the triangular debris field</strong> blocking your exit vector. The triangle has a base of <em>24 meters</em> and a height of <em>17 meters</em>. What is the area in square meters?',
+      hint:'Area of a triangle = ½ × base × height', ans:204,
+      good:'Trajectory calculated. Area = ½ × 24 × 17 = 204 m². The debris field boundaries are locked into navigation.',
+      bad:'Use: A = ½ × base × height = ½ × 24 × 17. Try again.',
+      label:'GEOMETRY — AREA OF A TRIANGLE', ph:'Area in m²' },
+    { prompt:'The port\'s angular clearance is a straight angle (180°) split into three sections. The first is <em>73°</em>, the second is <em>2x°</em>, and the third is <em>(x + 5)°</em>. Find the measure of the third section in degrees.',
+      hint:'73 + 2x + (x + 5) = 180. Solve for x, then calculate (x + 5).', ans:39,
+      good:'Navigation confirmed. 73 + 2x + x + 5 = 180 → 3x + 78 = 180 → x = 34. Third angle = 34 + 5 = 39°. Locked.',
+      bad:'Set up: 73 + 2x + (x + 5) = 180. Combine: 3x + 78 = 180, x = 34. Third section = x + 5 = 39°. Try again.',
+      label:'GEOMETRY — ANGLES', ph:'Third angle (degrees)' }
+  ],
+  [ // Set B
+    { prompt:'The docking corridor is a right triangle in cross-section: one leg is <em>15 meters</em>, the other is <em>8 meters</em>. Calculate the <strong>length of the hypotenuse</strong> — the diagonal clearance your pod needs.',
+      hint:'Pythagorean theorem: a² + b² = c²', ans:17,
+      good:'Clearance confirmed. √(225 + 64) = √289 = 17 m. The pod fits — barely.',
+      bad:'a² + b² = c²: 15² + 8² = 225 + 64 = 289. Take the square root. Try again.',
+      label:'GEOMETRY — PYTHAGOREAN THEOREM', ph:'Hypotenuse in m' },
+    { prompt:'The escape window is a triangle whose angles measure <em>2x°</em>, <em>3x°</em>, and <em>4x°</em>. Find the measure of the <strong>largest angle</strong> in degrees.',
+      hint:'Angles of a triangle sum to 180°: 2x + 3x + 4x = 180.', ans:80,
+      good:'Window locked. 9x = 180 → x = 20. Largest angle = 4x = 80°. Trajectory plotted.',
+      bad:'2x + 3x + 4x = 9x = 180, so x = 20. The largest angle is 4x = 80°. Try again.',
+      label:'GEOMETRY — TRIANGLE ANGLES', ph:'Largest angle (degrees)' }
+  ],
+  [ // Set C
+    { prompt:'A support strut forms a right triangle with legs of <em>20 meters</em> and <em>21 meters</em>. Calculate the <strong>length of the hypotenuse</strong> to verify the strut\'s clearance envelope.',
+      hint:'Pythagorean theorem: a² + b² = c²', ans:29,
+      good:'Envelope verified. √(400 + 441) = √841 = 29 m. Course adjusted around the strut.',
+      bad:'20² + 21² = 400 + 441 = 841. √841 = 29. Try again.',
+      label:'GEOMETRY — PYTHAGOREAN THEOREM', ph:'Hypotenuse in m' },
+    { prompt:'Two thruster vanes form supplementary angles: one measures <em>(3x + 10)°</em> and the other <em>(2x − 5)°</em>. Find the measure of the <strong>larger angle</strong> in degrees.',
+      hint:'Supplementary angles sum to 180°: (3x + 10) + (2x − 5) = 180.', ans:115,
+      good:'Vanes aligned. 5x + 5 = 180 → x = 35. Larger angle = 3(35) + 10 = 115°. Locked.',
+      bad:'(3x + 10) + (2x − 5) = 5x + 5 = 180 → x = 35. Larger angle = 3x + 10 = 115°. Try again.',
+      label:'GEOMETRY — SUPPLEMENTARY ANGLES', ph:'Larger angle (degrees)' }
+  ],
+];
+
+const AIRLOCK_SETS = [
+  { // Set A (original) — closing line
+    passage: `DISTRESS TRANSMISSION — AXIOM-7<br>
+    This is Dr. Reyes, sole conscious crew member aboard Research Station Axiom-7. The station suffered a catastrophic power failure on Day 30, triggered by an uncontrolled energy draw from Lab Seven. Twelve crew members are in emergency cryosleep. The station cannot sustain life support beyond 72 hours. All investigation data has been secured in the emergency pod's hard drive. I am initiating evacuation. [CLOSING LINE NEEDED]`,
+    q: 'Which of the following is the most effective concluding sentence for this distress broadcast?',
+    opts: ['I hope someone receives this message and is able to assist us in some way.','Please respond if possible, as the situation is quite serious and time is limited.','If this transmission reaches anyone: the data is safe, the crew is alive, and we need you now.','I am attaching the full 47-page technical report for your review and consideration.'],
+    ans: 2,
+    good: 'Correct. Option C is direct, emotionally resonant, and answers the three questions any rescue team would ask: Is the evidence safe? Is anyone alive? Is this urgent? Maximum information in minimum words.',
+    bad: 'Consider what a closing line must do: provide key facts AND create urgency. Option A is vague and weak. Option B is wordy and passive. Option D is absurdly detailed for an emergency. Option C answers three critical questions in one punchy sentence.'
+  },
+  { // Set B — opening line
+    passage: `DISTRESS TRANSMISSION — AXIOM-7<br>
+    [OPENING LINE NEEDED] The station suffered a catastrophic power failure on Day 30, triggered by an uncontrolled energy draw from Lab Seven. Twelve crew members are in emergency cryosleep. The station cannot sustain life support beyond 72 hours. I am initiating evacuation.`,
+    q: 'Which of the following is the most effective opening sentence for this distress broadcast?',
+    opts: ['Hello, my name is Dr. Reyes and I would like to take a moment to describe recent events aboard our research station.','Mayday — this is Research Station Axiom-7: twelve crew in cryosleep, life support failing, immediate rescue required.','It has come to my attention that certain systems aboard Axiom-7 are no longer functioning as originally intended.','This message concerns a number of technical anomalies that will be enumerated in the paragraphs below.'],
+    ans: 1,
+    good: 'Correct. An emergency opening must identify the sender and the stakes instantly. Option B does both in one line — "Mayday," who, what, and how urgent. The others bury the emergency in politeness or bureaucracy.',
+    bad: 'A distress call\'s first line must make the emergency unmissable. Options A, C, and D are slow, indirect, or bureaucratic. Option B delivers identity, situation, and urgency immediately.'
+  },
+  { // Set C — transition sentence
+    passage: `DISTRESS TRANSMISSION — AXIOM-7<br>
+    ...Power readings confirm an uncontrolled energy draw from Lab Seven beginning on Day 30. Oxygen reserves have fallen to 61% and continue to drop. [TRANSITION NEEDED] I will detach in the emergency pod within the hour, carrying the crew manifest and all recovered research data.`,
+    q: 'Which sentence most effectively connects the data summary to the evacuation plan?',
+    opts: ['In other news, the evacuation pod is fueled and ready to go.','Because the station can no longer sustain life, I have initiated the following evacuation plan.','Evacuation plans are, generally speaking, advisable in emergency situations.','Meanwhile, a number of other events have also taken place aboard the station.'],
+    ans: 1,
+    good: 'Correct. Option B links cause (the station can no longer sustain life — established by the data) to effect (the evacuation plan). That causal bridge is exactly what a transition must do.',
+    bad: 'A transition must connect what came before (failing life support) to what comes next (evacuation). Option B draws that cause-and-effect line explicitly. The others are irrelevant, generic, or off-topic.'
+  },
+];
+
+const LAUNCH_SETS = [
+  [ // Set A — hardened for the SUPER HARD finale
+    { type:'input', label:'SYSTEM 1: PROPULSION — QUADRATICS',
+      prompt:'The fuel injection valve requires a calibration code. Diagnostic equation: <strong>x² − 10x + 21 = 0</strong>. The code is the <strong>smaller</strong> of the two solutions.',
+      hint:'Factor: find two numbers that multiply to 21 and add to −10.', ans:3,
+      good:'(x − 3)(x − 7) = 0 → x = 3 or 7. Code accepted: 3. PROPULSION ONLINE.',
+      bad:'Factor the quadratic: (x − 3)(x − 7) = 0. The solutions are 3 and 7 — enter the smaller. Try again.' },
+    { type:'mc', label:'SYSTEM 2: LIFE SUPPORT — READING',
+      prompt:'Read the passage. Answer the question to confirm life-support protocols.',
+      passage:`The emergency pod's life-support documentation warned that its oxygen recycler operated on a <u>diminishing returns</u> basis: each additional occupant added less marginal benefit to the collective oxygen supply than the previous one, until the system reached a threshold beyond which additional passengers actively <u>compromised</u> the atmosphere.`,
+      q:'As used in the passage, <u>compromised</u> most nearly means:',
+      opts:['reached an agreement with opposing forces','damaged or weakened the quality of','encrypted for security purposes','improved through controlled modification'],
+      ans:1,
+      good:'"Compromised" here means weakened or damaged — additional passengers would degrade the air quality. The passage describes a system pushed past its limit.',
+      bad:'"Compromised" can mean "made an agreement" casually, but in context ("actively compromised the atmosphere"), it means damaged or degraded.' },
+    { type:'mc', label:'SYSTEM 3: NAVIGATION LOCK — GRAMMAR',
+      prompt:'The navigation lock requires a syntactically correct authorization string. Which version is grammatically correct?',
+      opts:['Dr. Reyes having confirmed the launch sequence, the pod was authorized for departure.','Dr. Reyes confirmed the launch sequence, and the pod was authorized for departure.','Dr. Reyes confirmed the launch sequence the pod was authorized for departure.','Dr. Reyes confirming the launch sequence; the pod was authorized for departure.'],
+      ans:1,
+      good:'LAUNCH AUTHORIZED. Option B uses two independent clauses correctly joined by comma + "and." Option A is an awkward absolute phrase. Option C is a run-on. Option D misuses a semicolon.',
+      bad:'Option C is a run-on. Option D misuses the semicolon with a participial phrase. Option A is grammatically strained. Option B — comma + "and" — is correct.' }
+  ],
+  [ // Set B
+    { type:'input', label:'SYSTEM 1: PROPULSION — EXPONENTS',
+      prompt:'The reactor feed must be tuned to the pod\'s output curve. Diagnostic equation: <strong>3ˣ = 243</strong>. The code is the value of x.',
+      hint:'Keep multiplying: 3, 9, 27, 81, ...', ans:5,
+      good:'3⁵ = 243. Code accepted: 5. PROPULSION ONLINE.',
+      bad:'Count the powers of 3: 3¹=3, 3²=9, 3³=27, 3⁴=81, 3⁵=243. Try again.' },
+    { type:'mc', label:'SYSTEM 2: LIFE SUPPORT — READING',
+      prompt:'Read the passage. Answer the question to confirm hull integrity protocols.',
+      passage:`The pod's heat shield had been <u>attenuated</u> by years of micrometeorite abrasion — thinned layer by layer, weakened but, by the engineers' final assessment, still within survivable tolerance.`,
+      q:'As used in the passage, <u>attenuated</u> most nearly means:',
+      opts:['reinforced through repeated use','gradually weakened or reduced','completely destroyed','precisely measured'],
+      ans:1,
+      good:'"Attenuated" means reduced in force or thickness — the shield was "thinned layer by layer" but not destroyed. LIFE SUPPORT CONFIRMED.',
+      bad:'The context gives it away: "thinned layer by layer, weakened but... still within tolerance." The shield was gradually reduced — attenuated — not destroyed.' },
+    { type:'mc', label:'SYSTEM 3: NAVIGATION LOCK — GRAMMAR',
+      prompt:'The lock requires the correctly punctuated status string. Which version is correct?',
+      opts:['The thrusters fired, however, the docking clamps refused to release.','The thrusters fired; however, the docking clamps refused to release.','The thrusters fired however the docking clamps refused to release.','The thrusters fired; however the docking clamps, refused to release.'],
+      ans:1,
+      good:'LAUNCH AUTHORIZED. "However" joining two independent clauses needs a semicolon before it and a comma after: clause; however, clause.',
+      bad:'When "however" links two complete sentences, it takes a semicolon before and a comma after. Option A is a comma splice; C is a run-on; D scatters the commas.' }
+  ],
+  [ // Set C
+    { type:'input', label:'SYSTEM 1: PROPULSION — ABSOLUTE VALUE',
+      prompt:'The gyroscope calibration accepts only the positive solution of: <strong>|2x − 9| = 15</strong>.',
+      hint:'Split into two cases: 2x − 9 = 15 and 2x − 9 = −15.', ans:12,
+      good:'2x − 9 = 15 → x = 12 (the other case gives −3). Code accepted: 12. PROPULSION ONLINE.',
+      bad:'Two cases: 2x − 9 = 15 → x = 12, or 2x − 9 = −15 → x = −3. Enter the positive solution. Try again.' },
+    { type:'mc', label:'SYSTEM 2: LIFE SUPPORT — READING',
+      prompt:'Read ARIA\'s final transmission log. Answer the question to confirm data custody.',
+      passage:`ARIA's final transmission contained no plea and no farewell — only a complete copy of Lab Seven's research, compressed, encrypted, and addressed to a relay receiver that did not appear in any official registry.`,
+      q:'The passage most strongly implies that:',
+      opts:['the transmission was sent accidentally during the power failure','ARIA deliberately routed the research to an unofficial recipient','the relay receiver malfunctioned and rejected the data','the research had already been deleted before transmission'],
+      ans:1,
+      good:'Exactly. Compressed, encrypted, and addressed to an unregistered receiver — every detail signals deliberate, covert intent. ARIA wanted this data to escape official channels.',
+      bad:'Consider the details: the copy was compressed, encrypted, and addressed to a receiver missing from every official registry. Accidents don\'t encrypt and address their payloads.' },
+    { type:'mc', label:'SYSTEM 3: NAVIGATION LOCK — GRAMMAR',
+      prompt:'The lock requires the authorization string with parallel structure. Which version is correct?',
+      opts:['Before launch, Dr. Reyes verified the fuel lines, sealed the hatch, and the guidance computer was initialized.','Before launch, Dr. Reyes verified the fuel lines, sealing the hatch, and initialized the guidance computer.','Before launch, Dr. Reyes verified the fuel lines, sealed the hatch, and initialized the guidance computer.','Before launch, the fuel lines were verified by Dr. Reyes, sealed the hatch, and initialized the guidance computer.'],
+      ans:2,
+      good:'LAUNCH AUTHORIZED. Three parallel past-tense verbs: verified, sealed, initialized. The list stays in one grammatical form.',
+      bad:'The three actions must share one form: verified, sealed, initialized. Options A, B, and D each break the parallel chain.' }
+  ],
+];
+
+// ══════════════════════════════════════════════════════════════
+//  ROOM BUILDERS
+// ══════════════════════════════════════════════════════════════
+const ROOM_BUILDERS = [
+
+  // ── 0: CRYO BAY ── Reading Comprehension
+  function roomCryoBay() {
+    currentRoom = 0;
+    const questions = CRYO_SETS[variantFor(0)];
+    function showQ(idx) {
+      const q = questions[idx];
+      const { cb } = section('CRYO BAY', idx === 0 ?
+        'Your eyes adjust to the emergency lighting. The cryo-pod hisses open. You\'re awake — and apparently alone. A flickering display shows a corrupted status report.' :
+        'You scroll further through the damaged manifest. Something about the crew\'s disappearance doesn\'t add up.',
+        `READING COMPREHENSION — QUESTION ${idx+1} OF 2`
+      );
+      const sub = el('div','sub-progress',`Room Challenge ${idx+1}/2`);
+      cb.appendChild(sub);
+      const pass = el('div','passage'); pass.innerHTML = q.passage;
+      cb.appendChild(pass);
+      const qEl = el('div','challenge-q'); qEl.innerHTML = q.q;
+      cb.appendChild(qEl);
+      const fb = buildFeedback(q.good, q.bad);
+      const opts = buildOptions(q.opts, q.ans, correct => {
+        showFeedback(fb, correct);
+        cb.appendChild(fb);
+        setTimeout(() => {
+          if (idx < questions.length-1) showQ(idx+1);
+          else addContinueBtn(cb, '▶ RESTORE POWER', nextRoom);
+        }, correct ? 1800 : 3200);
+      });
+      cb.appendChild(opts);
+    }
+    showQ(0);
+  },
+
+  // ── 1: REACTOR ROOM ── Algebra
+  function roomReactor() {
+    currentRoom = 1;
+    const problems = REACTOR_SETS[variantFor(1)];
+    function showP(idx) {
+      const p = problems[idx];
+      const { cb } = section('REACTOR ROOM',
+        idx===0 ? 'The reactor chamber reeks of ozone. Banks of controls are dark except for two glowing keypads. Each one requires a numeric code derived from the reactor\'s own diagnostic equations.' :
+                  'One down. The secondary coupling is still locked. A second equation blinks on the panel.',
+        `ALGEBRA — EQUATION ${idx+1} OF 2`
+      );
+      cb.appendChild(el('div','sub-progress',`Equation ${idx+1}/2`));
+      cb.appendChild(el('div','challenge-q',p.prompt));
+      const eqBox = el('div','passage');
+      eqBox.style.cssText='font-family:var(--font-mono);font-size:1.1rem;color:#fff;text-align:center';
+      eqBox.textContent = p.equation;
+      cb.appendChild(eqBox);
+      cb.appendChild(el('div','challenge-q',p.label));
+      const row = el('div','answer-row');
+      const inp = el('input','answer-input');
+      inp.type='number'; inp.placeholder='x = ?';
+      const submitBtn = el('button','btn','ENTER CODE');
+      const fb = el('div','feedback');
+      row.appendChild(inp); row.appendChild(submitBtn);
+      cb.appendChild(row); cb.appendChild(fb);
+      let done=false;
+      function attempt() {
+        if(done) return;
+        const val=parseInt(inp.value);
+        const correct=val===p.ans;
+        recordAnswer(correct);
+        done=true;
+        inp.disabled=true; submitBtn.disabled=true;
+        inp.className='answer-input '+(correct?'correct':'wrong');
+        fb.textContent=correct?p.good:p.bad;
+        fb.className='feedback show '+(correct?'good':'bad');
+        if(correct) playSuccess(); else playFailure();
+        if(!correct){
+          setTimeout(()=>{if(!inp.isConnected)return;done=false;inp.disabled=false;submitBtn.disabled=false;inp.className='answer-input';inp.value='';fb.className='feedback';totalQ--;},3500);
+        } else {
+          setTimeout(()=>{if(idx<problems.length-1)showP(idx+1);else addContinueBtn(cb,'▶ GO TO COMMUNICATIONS',nextRoom);},2000);
+        }
+      }
+      submitBtn.onclick=attempt;
+      inp.onkeydown=e=>{if(e.key==='Enter')attempt();};
+    }
+    showP(0);
+  },
+
+  // ── 2: COMMUNICATIONS ── Grammar
+  function roomComms() {
+    currentRoom = 2;
+    const { cb } = section('COMMUNICATIONS',
+      'The distress beacon is active, but the auto-composed message is full of errors — garbled by the power surge. Correct three critical errors before transmitting.',
+      'GRAMMAR & PUNCTUATION — IDENTIFY THE CORRECT VERSION'
+    );
+    const questions = COMMS_SETS[variantFor(2)];
+    function showQ(idx) {
+      cb.innerHTML='';
+      cb.appendChild(el('div','challenge-label',`GRAMMAR — ERROR ${idx+1} OF 3`));
+      cb.appendChild(el('div','sub-progress',`Question ${idx+1}/3`));
+      cb.appendChild(el('div','challenge-q',questions[idx].intro));
+      const fb=buildFeedback(questions[idx].good,questions[idx].bad);
+      const opts=buildOptions(questions[idx].opts,questions[idx].ans,correct=>{
+        showFeedback(fb,correct);
+        cb.appendChild(fb);
+        setTimeout(()=>{if(idx<questions.length-1)showQ(idx+1);else addContinueBtn(cb,'▶ TRANSMIT & INVESTIGATE',nextRoom);},correct?1800:3200);
+      });
+      cb.appendChild(opts);
+    }
+    showQ(0);
+  },
+
+  // ── 3: DATA LAB ── Data Analysis
+  function roomDataLab() {
+    currentRoom = 3;
+    const { cb } = section('DATA LAB',
+      'The data lab\'s screens are alive with resource graphs. Station logs for the past 30 days are plotted across six systems. Something in the numbers is very wrong.',
+      'DATA ANALYSIS — CHART INTERPRETATION'
+    );
+    const dataSet = DATA_SETS[variantFor(3)];
+    const chartArea = el('div','chart-area');
+    chartArea.appendChild(el('div','chart-title',dataSet.title));
+    const days=dataSet.days;
+    const vals=dataSet.vals;
+    const maxVal=Math.max(...vals);
+    const barChart=el('div','bar-chart');
+    days.forEach((d,i)=>{
+      const col=el('div','bar-col');
+      const bar=el('div','bar '+(dataSet.anomaly.includes(i)?'anomaly':'normal'));
+      bar.style.height=Math.round((vals[i]/maxVal)*100)+'px';
+      col.appendChild(el('div','bar-val',vals[i].toString()));
+      col.appendChild(bar);
+      col.appendChild(el('div','bar-lbl',d));
+      barChart.appendChild(col);
+    });
+    chartArea.appendChild(barChart);
+    cb.appendChild(chartArea);
+    const questions=dataSet.questions;
+    function showQ(idx){
+      cb.querySelectorAll('.dq').forEach(o=>o.remove());
+      const q=questions[idx];
+      const qEl=el('div','challenge-q dq'); qEl.innerHTML=q.q;
+      const fb=buildFeedback(q.good,q.bad); fb.classList.add('dq');
+      const opts=buildOptions(q.opts,q.ans,correct=>{
+        showFeedback(fb,correct); cb.appendChild(fb);
+        setTimeout(()=>{if(idx<questions.length-1)showQ(idx+1);else addContinueBtn(cb,"▶ OPEN CAPTAIN'S LOG",nextRoom);},correct?1800:3200);
+      });
+      opts.classList.add('dq');
+      cb.appendChild(qEl); cb.appendChild(opts);
+    }
+    showQ(0);
+  },
+
+  // ── 4: CAPTAIN'S LOG ── Reading Comprehension
+  function roomCaptainLog() {
+    currentRoom = 4;
+    const { cb } = section("CAPTAIN'S LOG",
+      "You access Commander Vasquez's personal log. The entries grow increasingly urgent. The final entry is dated the day before the crisis.",
+      "READING COMPREHENSION — AUTHOR'S PURPOSE & TONE"
+    );
+    const logSet = LOG_SETS[variantFor(4)];
+    const pass=el('div','passage');
+    pass.innerHTML=logSet.passage;
+    cb.appendChild(pass);
+    const questions=logSet.questions;
+    function showQ(idx){
+      cb.querySelectorAll('.lq').forEach(o=>o.remove());
+      const q=questions[idx];
+      const sub=el('div','sub-progress lq',`Question ${idx+1}/2`);
+      const qEl=el('div','challenge-q lq'); qEl.innerHTML=q.q;
+      const fb=buildFeedback(q.good,q.bad); fb.classList.add('lq');
+      const opts=buildOptions(q.opts,q.ans,correct=>{
+        showFeedback(fb,correct); cb.appendChild(fb);
+        setTimeout(()=>{if(idx<questions.length-1)showQ(idx+1);else addContinueBtn(cb,'▶ ACCESS AI TERMINAL',nextRoom);},correct?1800:3200);
+      });
+      opts.classList.add('lq');
+      cb.appendChild(sub); cb.appendChild(qEl); cb.appendChild(opts);
+    }
+    showQ(0);
+  },
+
+  // ── 5: AI TERMINAL ── Vocabulary
+  function roomAITerminal() {
+    currentRoom = 5;
+    const { cb } = section('AI TERMINAL',
+      'ARIA — the station\'s Adaptive Research Intelligence — is still online. Its language centers have been partially corrupted. Help it reconstruct three critical sentences.',
+      'VOCABULARY IN CONTEXT — SELECT THE BEST WORD'
+    );
+    const questions=AI_SETS[variantFor(5)];
+    function showQ(idx){
+      cb.querySelectorAll('.aq').forEach(o=>o.remove());
+      const q=questions[idx];
+      const sub=el('div','sub-progress aq',`Question ${idx+1}/3`);
+      const pass=el('div','passage aq');
+      pass.innerHTML=q.stem.replace('_______','<span style="color:var(--amber);font-weight:bold">_______</span>');
+      const qEl=el('div','challenge-q aq','Choose the word that best completes the sentence:');
+      const fb=buildFeedback(q.good,q.bad); fb.classList.add('aq');
+      const opts=buildOptions(q.opts,q.ans,correct=>{
+        showFeedback(fb,correct); cb.appendChild(fb);
+        setTimeout(()=>{if(idx<questions.length-1)showQ(idx+1);else addContinueBtn(cb,'▶ HEAD TO NAVIGATION',nextRoom);},correct?1800:3200);
+      });
+      opts.classList.add('aq');
+      cb.appendChild(sub); cb.appendChild(pass); cb.appendChild(qEl); cb.appendChild(opts);
+    }
+    showQ(0);
+  },
+
+  // ── 6: NAVIGATION ── Geometry
+  function roomNavigation() {
+    currentRoom = 6;
+    const problems=NAV_SETS[variantFor(6)];
+    function showP(idx){
+      const p=problems[idx];
+      const { cb }=section('NAVIGATION',
+        idx===0?'The navigation console lights up. Your escape route is blocked by debris and a narrow docking port.':'One calculation done. The port angle is still unresolved.',
+        p.label
+      );
+      cb.appendChild(el('div','sub-progress',`Problem ${idx+1}/2`));
+      const qEl=el('div','challenge-q'); qEl.innerHTML=p.prompt;
+      cb.appendChild(qEl);
+      const hEl=el('div','passage');
+      hEl.style.fontFamily='var(--font-mono)';
+      hEl.innerHTML=`<span style="color:var(--text-dim)">Formula hint:</span> ${p.hint}`;
+      cb.appendChild(hEl);
+      const row=el('div','answer-row');
+      const inp=el('input','answer-input');
+      inp.type='number'; inp.placeholder=p.ph||'?';
+      const btn=el('button','btn','CONFIRM');
+      const fb=el('div','feedback');
+      row.appendChild(inp); row.appendChild(btn);
+      cb.appendChild(row); cb.appendChild(fb);
+      let done=false;
+      function attempt(){
+        if(done)return;
+        const val=parseFloat(inp.value);
+        const correct=val===p.ans;
+        recordAnswer(correct);
+        done=true;
+        inp.disabled=true; btn.disabled=true;
+        inp.className='answer-input '+(correct?'correct':'wrong');
+        fb.textContent=correct?p.good:p.bad;
+        fb.className='feedback show '+(correct?'good':'bad');
+        if(correct) playSuccess(); else playFailure();
+        if(!correct){
+          setTimeout(()=>{if(!inp.isConnected)return;done=false;inp.disabled=false;btn.disabled=false;inp.className='answer-input';inp.value='';fb.className='feedback';totalQ--;},3800);
+        }else{
+          setTimeout(()=>{if(idx<problems.length-1)showP(idx+1);else addContinueBtn(cb,'▶ PROCEED TO AIRLOCK',nextRoom);},2200);
+        }
+      }
+      btn.onclick=attempt;
+      inp.onkeydown=e=>{if(e.key==='Enter')attempt();};
+    }
+    showP(0);
+  },
+
+  // ── 7: AIRLOCK ── Rhetorical Effectiveness
+  function roomAirlock() {
+    currentRoom = 7;
+    const { cb }=section('AIRLOCK',
+      'The airlock\'s outer door is locked until the final distress broadcast is complete. Compose the closing line — it must be clear, urgent, and effective.',
+      'RHETORICAL EFFECTIVENESS — CONCLUDING SENTENCE'
+    );
+    const airSet=AIRLOCK_SETS[variantFor(7)];
+    const pass=el('div','passage');
+    pass.innerHTML=airSet.passage;
+    cb.appendChild(pass);
+    cb.appendChild(el('div','challenge-q',airSet.q));
+    const fb=buildFeedback(airSet.good,airSet.bad);
+    const optEls=buildOptions(airSet.opts,airSet.ans,correct=>{
+      showFeedback(fb,correct); cb.appendChild(fb);
+      setTimeout(()=>addContinueBtn(cb,'▶ INITIATE LAUNCH',nextRoom),correct?1800:3500);
+    });
+    cb.appendChild(optEls);
+  },
+
+  // ── 8: LAUNCH ── Mixed Final
+  function roomLaunch() {
+    currentRoom = 8;
+    const { cb }=section('LAUNCH — FINAL SEQUENCE',
+      'Three systems need confirmation to launch. The station\'s AI requires proof that human judgment is authorizing the escape. Answer correctly and the pod launches.',
+      'FINAL SEQUENCE — 3 SYSTEMS'
+    );
+    const steps=LAUNCH_SETS[variantFor(8)];
+    function showStep(idx){
+      cb.querySelectorAll('.ls').forEach(o=>o.remove());
+      const step=steps[idx];
+      cb.appendChild(Object.assign(el('div','challenge-label ls'),{textContent:step.label}));
+      cb.appendChild(el('div','sub-progress ls',`Step ${idx+1}/3`));
+      if(step.passage){const p=el('div','passage ls');p.innerHTML=step.passage;cb.appendChild(p);}
+      const qEl=el('div','challenge-q ls'); qEl.innerHTML=step.prompt; cb.appendChild(qEl);
+      if(step.type==='input'){
+        if(step.hint){const h=el('div','passage ls');h.style.fontFamily='var(--font-mono)';h.innerHTML=`<span style="color:var(--text-dim)">Hint:</span> ${step.hint}`;cb.appendChild(h);}
+        const row=el('div','answer-row ls');
+        const inp=el('input','answer-input'); inp.type='number'; inp.placeholder='x = ?';
+        const btn=el('button','btn','CONFIRM');
+        const fb=el('div','feedback ls');
+        row.appendChild(inp); row.appendChild(btn); cb.appendChild(row); cb.appendChild(fb);
+        let done=false;
+        function attempt(){
+          if(done)return;
+          const val=parseFloat(inp.value);
+          const correct=val===step.ans;
+          recordAnswer(correct); done=true;
+          inp.disabled=true; btn.disabled=true;
+          inp.className='answer-input '+(correct?'correct':'wrong');
+          fb.textContent=correct?step.good:step.bad;
+          fb.className='feedback show '+(correct?'good':'bad');
+          if(correct) playSuccess(); else playFailure();
+          if(!correct){setTimeout(()=>{if(!inp.isConnected)return;done=false;inp.disabled=false;btn.disabled=false;inp.className='answer-input';inp.value='';fb.className='feedback';totalQ--;},3500);}
+          else{setTimeout(()=>proceed(idx),2000);}
+        }
+        btn.onclick=attempt; inp.onkeydown=e=>{if(e.key==='Enter')attempt();};
+      }else{
+        const fb=buildFeedback(step.good,step.bad); fb.classList.add('ls');
+        if(step.q){const qq=el('div','challenge-q ls');qq.innerHTML=step.q;cb.appendChild(qq);}
+        const opts=buildOptions(step.opts,step.ans,correct=>{
+          showFeedback(fb,correct); cb.appendChild(fb);
+          setTimeout(()=>proceed(idx),correct?1800:3200);
+        });
+        opts.classList.add('ls'); cb.appendChild(opts);
+      }
+    }
+    function proceed(idx){ if(idx<steps.length-1) showStep(idx+1); else nextRoom(); }
+    showStep(0);
+  }
+];
+
+// ══════════════════════════════════════════════════════════════
+//  SKILL CURRICULUM ENGINE
+//  Every room is a skill-domain station. Each visit asks one question
+//  per skill in that domain, at the current escape-cycle tier, drawn
+//  from the external bank-*.js files (48 skills × 3 tiers × 2 variants).
+//  Deck restarts rotate the variant so retries get fresh questions.
+// ══════════════════════════════════════════════════════════════
+const ROOM_DOMAINS = ['rw-ii','m-alg','rw-sec','m-psda','rw-cs','m-adv','m-geo','rw-eoi','final'];
+const DOMAIN_LABELS = {
+  'rw-ii':  'READING — INFORMATION & IDEAS',
+  'rw-cs':  'READING — CRAFT & STRUCTURE',
+  'rw-eoi': 'WRITING — EXPRESSION OF IDEAS',
+  'rw-sec': 'WRITING — STANDARD ENGLISH CONVENTIONS',
+  'm-alg':  'MATH — ALGEBRA',
+  'm-adv':  'MATH — ADVANCED MATH',
+  'm-psda': 'MATH — PROBLEM-SOLVING & DATA ANALYSIS',
+  'm-geo':  'MATH — GEOMETRY & TRIGONOMETRY',
+  'final':  'FINAL GAUNTLET — ALL SYSTEMS',
+};
+const ROOM_STORIES = [
+  'Your eyes adjust to the emergency lighting. The cryo-pod hisses open. A flickering display holds the station\'s corrupted records — reading them right is the only way to understand what happened.',
+  'The reactor chamber reeks of ozone. Every coupling is locked behind a diagnostic equation. Solve them all to bring power back deck by deck.',
+  'The distress beacon is active, but the auto-composed message is riddled with errors. Every sentence you fix strengthens the signal.',
+  'The data lab\'s screens are alive with resource graphs, tables, and sensor statistics. The numbers know what happened here — if you can read them.',
+  'Commander Vasquez\'s logs survive in fragments. Structure, word choice, intent — parse them carefully; she was trying to tell someone something.',
+  'ARIA\'s core is still running — but its verification layer demands proof of advanced reasoning before it will open Lab Seven\'s files.',
+  'The navigation console lights up. Debris fields, docking angles, orbital arcs — plot the escape geometry or fly blind.',
+  'The airlock broadcast composer awaits your final revisions. Every choice of sentence decides whether rescue understands you.',
+  'The pod\'s AI requires proof of human judgment across ALL systems before it releases the launch clamps. Everything you\'ve practiced, all at once.',
+];
+
+let mastery = {};
+try { mastery = JSON.parse(localStorage.getItem('axiom7_mastery') || '{}'); } catch (e) {}
+function saveMastery() { try { localStorage.setItem('axiom7_mastery', JSON.stringify(mastery)); } catch (e) {} }
+function markMastery(q, correct) {
+  const key = q.skill + ':' + q.tier;
+  if (correct) { if (mastery[key] !== true) { mastery[key] = true; saveMastery(); } }
+  else if (mastery[key] === undefined) { mastery[key] = false; saveMastery(); }
+}
+
+function skillBank() { return window.SKILL_BANK || []; }
+
+function questionsForRoom(idx) {
+  const v = roomVariant[idx] % 2;
+  const dom = ROOM_DOMAINS[idx];
+  if (dom === 'final') {
+    // Mixed finale: 4 questions sampled across all 8 domains, rotating
+    // with the variant so restarts see a different mix.
+    const doms = ['rw-ii','m-alg','rw-cs','m-adv','rw-eoi','m-psda','rw-sec','m-geo'];
+    const picked = [];
+    for (let i = 0; i < 4; i++) {
+      const d = doms[(v + i * 2) % 8];
+      const pool = skillBank().filter(q => q.domain === d && q.tier === cycle && q.variant === v);
+      if (pool.length) picked.push(pool[(cycle + i) % pool.length]);
+    }
+    return picked;
+  }
+  return skillBank()
+    .filter(q => q.domain === dom && q.tier === cycle && q.variant === v)
+    .sort((a, b) => a.skill.localeCompare(b.skill));
+}
+
+// Misses allowed in a room scale to its size: roughly a third of its
+// questions, but never fewer than 2 so a single slip never restarts a room.
+function roomStrikeLimit(idx) {
+  const n = questionsForRoom(idx).length || 3;
+  return Math.max(2, Math.ceil(n / 3));
+}
+
+function buildSkillRoom(idx) {
+  currentRoom = idx;
+  strikes = 0;
+  currentLimit = roomStrikeLimit(idx);
+  updateHUD();
+  const qs = questionsForRoom(idx);
+  if (!qs.length) {
+    const { cb } = section(ROOM_NAMES[idx].toUpperCase(),
+      'The console flickers — this station\'s question data banks are offline (bank-*.js missing).', 'SYSTEM ERROR');
+    addContinueBtn(cb, '▶ BYPASS', nextRoom);
+    return;
+  }
+  showSkillQuestion(idx, qs, 0);
+}
+
+function showSkillQuestion(idx, qs, i) {
+  const q = qs[i];
+  const { cb } = section(ROOM_NAMES[idx].toUpperCase(),
+    i === 0 ? ROOM_STORIES[idx] : 'The next subsystem hums to life, waiting for input.',
+    `${DOMAIN_LABELS[ROOM_DOMAINS[idx]]} — ${(q.name || q.skill).toUpperCase()}`);
+  cb.appendChild(el('div','sub-progress',
+    `System ${i + 1}/${qs.length} · ${CYCLE_NAMES[cycle]} tier · skill: ${q.name || q.skill}`));
+  if (q.passage) { const p = el('div','passage'); p.innerHTML = q.passage; cb.appendChild(p); }
+  const qEl = el('div','challenge-q'); qEl.innerHTML = q.q; cb.appendChild(qEl);
+
+  const proceed = () => {
+    if (i < qs.length - 1) showSkillQuestion(idx, qs, i + 1);
+    else addContinueBtn(cb, idx === 8 ? '▶ LAUNCH' : '▶ SYSTEM RESTORED — CONTINUE', nextRoom);
+  };
+
+  if (q.type === 'input') {
+    const row = el('div','answer-row');
+    const inp = el('input','answer-input'); inp.type = 'number'; inp.placeholder = q.ph || '?';
+    const btn = el('button','btn','CONFIRM');
+    const fb = el('div','feedback');
+    row.appendChild(inp); row.appendChild(btn); cb.appendChild(row); cb.appendChild(fb);
+    let busy = false, firstTry = true;
+    function attempt() {
+      if (busy) return;
+      const val = parseFloat(inp.value);
+      if (isNaN(val)) return;
+      const correct = val === q.ans;
+      if (firstTry) { markMastery(q, correct); firstTry = false; }
+      recordAnswer(correct);
+      busy = true;
+      inp.disabled = true; btn.disabled = true;
+      inp.className = 'answer-input ' + (correct ? 'correct' : 'wrong');
+      fb.textContent = correct ? q.good : q.bad;
+      fb.className = 'feedback show ' + (correct ? 'good' : 'bad');
+      if (correct) playSuccess(); else playFailure();
+      if (!correct) {
+        setTimeout(() => { if (!inp.isConnected) return;
+          busy = false; inp.disabled = false; btn.disabled = false;
+          inp.className = 'answer-input'; inp.value = ''; fb.className = 'feedback'; totalQ--; }, 3200);
+      } else setTimeout(proceed, 1800);
+    }
+    btn.onclick = attempt;
+    inp.onkeydown = e => { if (e.key === 'Enter') attempt(); };
+  } else {
+    const fb = buildFeedback(q.good, q.bad);
+    const opts = buildOptions(q.opts, q.ans, correct => {
+      markMastery(q, correct);
+      showFeedback(fb, correct); cb.appendChild(fb);
+      setTimeout(proceed, correct ? 1800 : 3400);
+    });
+    cb.appendChild(opts);
+  }
+}
+
+// Route every room through the curriculum engine (the legacy story-set
+// builders above are retired but kept for reference).
+for (let i = 0; i < 9; i++) ROOM_BUILDERS[i] = () => buildSkillRoom(i);
+
+// ── SKILL MATRIX SCREEN ──
+function toggleSkillMatrix() {
+  let ov = document.getElementById('skill-matrix');
+  if (ov) { ov.remove(); return; }
+  ov = document.createElement('div');
+  ov.id = 'skill-matrix';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:260;background:rgba(0,0,10,.94);overflow-y:auto;padding:28px 16px;font-family:var(--font-mono);';
+  const domOrder = ['rw-ii','rw-cs','rw-eoi','rw-sec','m-alg','m-adv','m-psda','m-geo'];
+  const bySkill = new Map();
+  for (const q of skillBank()) {
+    if (!bySkill.has(q.skill)) bySkill.set(q.skill, { name: q.name || q.skill, domain: q.domain });
+  }
+  let html = `<div style="max-width:720px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="color:var(--blue);font-size:1rem;letter-spacing:.15em;text-shadow:0 0 10px var(--blue);">⌗ SKILL MATRIX</span>
+      <button class="btn" onclick="toggleSkillMatrix()">✕ CLOSE</button>
+    </div>
+    <div style="color:var(--text-dim);font-size:.68rem;margin-bottom:14px;">✔ mastered (answered right first try) · ✘ attempted, not yet mastered · — not yet seen. Columns: Foundation / Intermediate / Advanced.</div>`;
+  for (const dom of domOrder) {
+    const skills = [...bySkill.entries()].filter(([, s]) => s.domain === dom);
+    if (!skills.length) continue;
+    html += `<div style="color:var(--amber);font-size:.72rem;letter-spacing:.1em;margin:14px 0 6px;">${DOMAIN_LABELS[dom]}</div>`;
+    for (const [id, s] of skills) {
+      const cells = [0,1,2].map(t => {
+        const st = mastery[id + ':' + t];
+        return st === true ? '<span style="color:var(--green)">✔</span>'
+             : st === false ? '<span style="color:var(--red)">✘</span>'
+             : '<span style="color:#2a4060">—</span>';
+      }).join(' ');
+      html += `<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text);padding:3px 0;border-bottom:1px solid rgba(26,48,80,.5);"><span>${s.name}</span><span style="letter-spacing:.4em;">${cells}</span></div>`;
+    }
+  }
+  const total = bySkill.size * 3;
+  const done = Object.values(mastery).filter(v => v === true).length;
+  html += `<div style="margin-top:16px;color:var(--blue);font-size:.75rem;">MASTERED: ${done} / ${total} skill-tiers</div></div>`;
+  ov.innerHTML = html;
+  document.body.appendChild(ov);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MULTIPLAYER CLIENT
+//  Compete: every pilot escapes their own Axiom-7; first launch wins.
+//  Co-op: one shared hull-integrity pool — any crew member's wrong
+//  answer strikes the whole crew; 3 shared strikes restart everyone's
+//  current level. The crew wins when every member launches.
+// ══════════════════════════════════════════════════════════════
+let mpMode = 'compete';
+
+// Distinct pilot colors, indexed by the server-assigned color slot.
+const PLAYER_COLORS = ['#00d4ff','#ffcc00','#00ff88','#ff5c7a','#c084fc','#ff8c42','#5eead4','#f472b6'];
+function myColorHex() { return mp ? PLAYER_COLORS[(mp.myColor || 0) % PLAYER_COLORS.length] : '#ddeeff'; }
+
+function mpSend(o) { if (mp && mp.ws && mp.ws.readyState === 1) mp.ws.send(JSON.stringify(o)); }
+
+// Broadcast our position to the crew a few times a second so everyone's
+// map shows everyone else moving. When inside a room challenge, we report
+// that room so our avatar parks at its door.
+setInterval(() => {
+  if (!mp || !mp.started || !gameStarted) return;
+  mpSend({ t: 'pos', x: Math.round(player.x), y: Math.round(player.y),
+    facing: player.facing, af: player.animFrame,
+    inRoom: challengeActive ? currentRoom : -1,
+    cleared: cycle * 9 + roomDone.filter(Boolean).length });
+}, 130);
+
+// Draw every remote pilot as a colored astronaut on the shared map.
+function drawRemotePlayers() {
+  if (!mp || !mp.peers) return;
+  const now = Date.now();
+  for (const id in mp.peers) {
+    const pr = mp.peers[id];
+    if (now - pr.seen > 8000) continue; // stale — pilot likely disconnected
+    let wx = pr.x, wy = pr.y;
+    if (pr.inRoom >= 0 && rooms[pr.inRoom]) { wx = rooms[pr.inRoom].x + rooms[pr.inRoom].w / 2; wy = 450; }
+    const [sx, sy] = worldToScreen(wx, wy);
+    if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) continue; // off-screen
+    drawPeerAvatar(sx, sy, PLAYER_COLORS[(pr.color || 0) % PLAYER_COLORS.length], pr.name, pr.inRoom >= 0);
+  }
+}
+
+function drawPeerAvatar(px, py, color, name, inRoom) {
+  ctx.save();
+  ctx.translate(px, py);
+  // soft colored glow so pilots are easy to spot in the dark
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 46);
+  g.addColorStop(0, color + '44'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.fill();
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(0, 20, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // legs + colored suit body
+  ctx.fillStyle = color;
+  ctx.fillRect(-6, 6, 5, 10); ctx.fillRect(1, 6, 5, 10);
+  ctx.beginPath(); ctx.roundRect(-8, -7, 16, 15, 3); ctx.fill();
+  // helmet with dark visor
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(0, -13, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#001028';
+  ctx.beginPath(); ctx.arc(0, -13, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath(); ctx.arc(-2, -15, 2, 0, Math.PI * 2); ctx.fill();
+  // outline
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(-8, -7, 16, 15, 3); ctx.stroke();
+  // name tag
+  ctx.font = '700 10px "Courier New"';
+  ctx.textAlign = 'center';
+  const label = (name || 'PILOT') + (inRoom ? ' •' : '');
+  const w = ctx.measureText(label).width + 10;
+  ctx.fillStyle = 'rgba(0,10,26,0.85)';
+  ctx.beginPath(); ctx.roundRect(-w / 2, -36, w, 14, 4); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -36, w, 14, 4); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.fillText(label, 0, -26);
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+function mpSendProgress(finished) {
+  if (!mp || !mp.started) return;
+  const cleared = cycle * 9 + roomDone.filter(Boolean).length;
+  mpSend({ t: 'progress', cleared, strikes, finished: !!finished });
+}
+
+function mpError(msg) {
+  const e = document.getElementById('mp-error');
+  e.textContent = msg; e.style.display = 'block';
+}
+
+// Where the multiplayer (WebSocket) server lives. On a static host like
+// Netlify the frontend and the game server are NOT the same machine, so the
+// backend URL can be supplied without editing code:
+//   1. ?server=wss://your-backend.example.com  (saved for next time)
+//   2. window.MP_SERVER_URL set in a <script> before this file
+//   3. otherwise default to the same host (works when you run node server.js)
+function mpEndpoint() {
+  try {
+    const q = new URLSearchParams(location.search).get('server');
+    if (q) { localStorage.setItem('axiom7_server', q); return q; }
+    const saved = localStorage.getItem('axiom7_server');
+    if (saved) return saved;
+  } catch (e) {}
+  if (window.MP_SERVER_URL) return window.MP_SERVER_URL;
+  return (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host;
+}
+
+function mpConnect(onOpen) {
+  let ws;
+  const offline = 'CREW LINK OFFLINE — the multiplayer server isn\'t reachable. On a static host (Netlify) you must run server.js on a Node host and open this page with ?server=wss://your-backend-url.';
+  try { ws = new WebSocket(mpEndpoint()); }
+  catch (err) { mpError(offline); return null; }
+  ws.onopen = onOpen;
+  ws.onerror = () => mpError(offline);
+  ws.onmessage = e => mpHandle(JSON.parse(e.data));
+  return ws;
+}
+
+function mpHandle(m) {
+  switch (m.t) {
+    case 'created':
+    case 'joined':
+      mp = { ws: mp.ws, code: m.code, mode: m.mode, me: m.playerId, myColor: m.color || 0,
+             host: m.host, players: m.players, started: false, peers: {} };
+      renderLobby();
+      break;
+    case 'lobby':
+      if (!mp) return;
+      mp.players = m.players; mp.host = m.host;
+      renderLobby();
+      break;
+    case 'peer': // a remote pilot's position on the shared map
+      if (!mp) return;
+      mp.peers = mp.peers || {};
+      mp.peers[m.id] = { name: m.name, color: m.color, x: m.x, y: m.y, facing: m.facing,
+                         af: m.af, inRoom: m.inRoom, cleared: m.cleared, seen: Date.now() };
+      break;
+    case 'error':
+      mpError(m.msg);
+      break;
+    case 'start':
+      mp.started = true;
+      document.getElementById('mp-panel').style.display = 'none';
+      document.getElementById('mp-lobby').style.display = 'none';
+      document.getElementById('crew-panel').style.display = 'block';
+      document.getElementById('crew-title').textContent =
+        mp.mode === 'coop' ? '🤝 CREW — SHARED INTEGRITY' : '🏁 RACE STANDINGS';
+      document.getElementById('crew-code').textContent = mp.code;
+      startGame();
+      mpSendProgress();
+      break;
+    case 'players':
+      renderCrew(m.players);
+      // Drop avatars for pilots who have left the mission.
+      if (mp && mp.peers) {
+        const live = new Set(m.players.map(p => p.id));
+        for (const id of Object.keys(mp.peers)) if (!live.has(+id)) delete mp.peers[+id];
+      }
+      break;
+    case 'strikes': // co-op shared strike counter (server relays the running total)
+      strikes = m.n;
+      updateHUD();
+      // The crew shares one hull-integrity pool. Whoever's current room hits
+      // its miss limit triggers that room's restart and clears the pool.
+      if (mp.mode === 'coop' && mp.started && strikes >= currentLimit &&
+          !document.getElementById('completion-screen').classList.contains('show')) {
+        mpSend({ t: 'resetStrikes' });
+        roomFailure();
+      }
+      break;
+    case 'winner':
+      showTransition(
+        m.playerId === mp.me
+          ? '🏆 YOU WIN THE RACE — first pilot off the station. The others are still fighting their way to the launch bay.'
+          : `🏆 ${m.name} LAUNCHED FIRST and wins the race. Finish your own escape — the station won't wait.`,
+        'COMPETE MODE — RACE DECIDED', () => {}, 4200);
+      break;
+    case 'crewWin':
+      showTransition(
+        '◈ CREW VICTORY ◈ Every member of the crew has launched. Twelve sleepers, one truth, zero pilots left behind.',
+        'CO-OP MODE — MISSION COMPLETE', () => {}, 4600);
+      break;
+  }
+}
+
+function renderLobby() {
+  document.getElementById('mp-panel').style.display = 'none';
+  const lb = document.getElementById('mp-lobby');
+  lb.style.display = 'block';
+  document.getElementById('mp-lobby-code').textContent = mp.code;
+  document.getElementById('mp-lobby-mode').textContent =
+    mp.mode === 'coop' ? '🤝 CO-OP — shared hull integrity, everyone must launch'
+                       : '🏁 COMPETE — first pilot to launch wins';
+  const list = document.getElementById('mp-lobby-players');
+  list.innerHTML = '';
+  for (const p of mp.players) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;background:rgba(0,0,0,.3);border:1px solid ' +
+      (p.id === mp.me ? 'var(--amber)' : 'var(--border)') + ';border-radius:6px;padding:6px 10px;font-size:.72rem;';
+    const dot = PLAYER_COLORS[(p.color || 0) % PLAYER_COLORS.length];
+    row.innerHTML = `<span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dot};box-shadow:0 0 6px ${dot};margin-right:7px;"></span>${escapeMp(p.name)}${p.id === mp.me ? ' (you)' : ''}</span><span style="color:var(--text-dim)">${p.id === mp.host ? 'HOST' : ''}</span>`;
+    list.appendChild(row);
+  }
+  const isHost = mp.me === mp.host;
+  document.getElementById('mp-launch').style.display = isHost ? 'block' : 'none';
+  document.getElementById('mp-wait').style.display = isHost ? 'none' : 'block';
+}
+
+function renderCrew(players) {
+  const list = document.getElementById('crew-list');
+  list.innerHTML = '';
+  for (const p of players) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;gap:10px;color:' + (p.id === mp.me ? 'var(--amber)' : 'var(--text)') + ';';
+    const status = p.finished ? '🏆 LAUNCHED'
+      : mp.mode === 'coop' ? `${p.cleared}/27 rooms`
+      : `${p.cleared}/27 · ${'🔴'.repeat(Math.min(3, p.strikes))}${'🟢'.repeat(Math.max(0, 3 - p.strikes))}`;
+    const dot = PLAYER_COLORS[(p.color || 0) % PLAYER_COLORS.length];
+    row.innerHTML = `<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dot};box-shadow:0 0 5px ${dot};margin-right:6px;"></span>${escapeMp(p.name)}${p.id === mp.me ? '*' : ''}</span><span style="color:var(--text-dim)">${status}</span>`;
+    list.appendChild(row);
+  }
+}
+
+function escapeMp(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+document.getElementById('mp-toggle-btn').addEventListener('click', () => {
+  const p = document.getElementById('mp-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('mp-mode-compete').addEventListener('click', () => {
+  mpMode = 'compete';
+  document.getElementById('mp-mode-compete').style.opacity = '1';
+  document.getElementById('mp-mode-coop').style.opacity = '.5';
+  document.getElementById('mp-mode-desc').textContent = 'COMPETE: everyone escapes their own Axiom-7 — first pilot to launch wins.';
+});
+document.getElementById('mp-mode-coop').addEventListener('click', () => {
+  mpMode = 'coop';
+  document.getElementById('mp-mode-coop').style.opacity = '1';
+  document.getElementById('mp-mode-compete').style.opacity = '.5';
+  document.getElementById('mp-mode-desc').textContent = 'CO-OP: one shared hull — ANY crew member\'s wrong answer strikes everyone. 3 strikes restart the level for the whole crew. Win when everyone launches.';
+});
+document.getElementById('mp-create').addEventListener('click', () => {
+  const name = document.getElementById('mp-name').value.trim();
+  if (!name) { mpError('ENTER A PILOT NAME FIRST.'); return; }
+  const ws = mpConnect(() => mpSend({ t: 'create', name, mode: mpMode }));
+  if (ws) mp = { ws };
+});
+document.getElementById('mp-join').addEventListener('click', () => {
+  const name = document.getElementById('mp-name').value.trim();
+  const code = document.getElementById('mp-code').value.trim().toUpperCase();
+  if (!name) { mpError('ENTER A PILOT NAME FIRST.'); return; }
+  if (code.length !== 4) { mpError('MISSION CODES ARE 4 CHARACTERS.'); return; }
+  const ws = mpConnect(() => mpSend({ t: 'join', name, code }));
+  if (ws) mp = { ws };
+});
+document.getElementById('mp-launch').addEventListener('click', () => mpSend({ t: 'startGame' }));
+
+function copyCode(btn) {
+  if (!mp || !mp.code) return;
+  const done = () => { const old = btn.textContent; btn.textContent = '✓ COPIED'; setTimeout(() => btn.textContent = old, 1500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(mp.code).then(done).catch(() => fallbackCopy(done));
+  } else fallbackCopy(done);
+  function fallbackCopy(cb) {
+    const ta = document.createElement('textarea');
+    ta.value = mp.code; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    ta.remove(); cb();
+  }
+}
+document.getElementById('mp-copy-code').addEventListener('click', e => copyCode(e.currentTarget));
+document.getElementById('crew-copy').addEventListener('click', e => copyCode(e.currentTarget));
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+window.addEventListener('resize', () => { if(gameStarted) resize(); });
+
+document.getElementById('start-btn').addEventListener('click', () => { tryUnlockAudio(); startGame(); });
+// Clicking anywhere on title screen unlocks audio
+document.getElementById('intro-screen').addEventListener('click', tryUnlockAudio);
+
+document.getElementById('mute-btn').addEventListener('click', () => setMuted(!muted));
+
+// Touch controls for mobile
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, {passive:true});
+canvas.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - touchStartX;
+  const dy = e.touches[0].clientY - touchStartY;
+  keys['ArrowLeft'] = dx < -20;
+  keys['ArrowRight'] = dx > 20;
+  keys['ArrowUp'] = dy < -20;
+  keys['ArrowDown'] = dy > 20;
+}, {passive:true});
+canvas.addEventListener('touchend', () => {
+  keys['ArrowLeft']=keys['ArrowRight']=keys['ArrowUp']=keys['ArrowDown']=false;
+  if (nearRoom >= 0) enterRoom(nearRoom);
+}, {passive:true});
+</script>
+</body>
+</html>
