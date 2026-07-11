@@ -1765,6 +1765,7 @@ function nextRoom() {
           strikes = 0;
           levelVariant = [0, 0, 0, 0];
           roomVariant = new Array(9).fill(0);
+          seenThisCycle = new Set(); // fresh finale pool for the new tier
           currentRoom = -1;
           challengeActive = false;
           player.x = 240; player.y = 450;
@@ -1834,6 +1835,7 @@ function restartGame() {
   score = 0; totalQ = 0; currentRoom = -1; challengeActive = false;
   roomDone.fill(false); nearRoom = -1;
   strikes = 0; levelVariant = [0, 0, 0, 0]; roomVariant = new Array(9).fill(0); currentLimit = 3; cycle = 0;
+  seenThisCycle = new Set();
   player.x = 240; player.y = 450;
   document.getElementById('completion-screen').classList.remove('show');
   document.getElementById('challenge-overlay').classList.remove('show');
@@ -3713,12 +3715,18 @@ function markMastery(q, correct) {
   // The richest signal: every question attempt, tagged by skill/domain/tier.
   track('question_answered', { skill: q.skill, name: q.name, domain: q.domain,
     tier: q.tier, cycle: cycle + 1, room: currentRoom, type: q.type, correct: !!correct });
+  seenThisCycle.add(qid(q));
   const key = q.skill + ':' + q.tier;
   if (correct) { if (mastery[key] !== true) { mastery[key] = true; saveMastery(); } }
   else if (mastery[key] === undefined) { mastery[key] = false; saveMastery(); }
 }
 
 function skillBank() { return window.SKILL_BANK || []; }
+
+// Track the exact questions answered in the current cycle so the Launch
+// finale can serve fresh ones instead of repeating earlier rooms.
+let seenThisCycle = new Set();
+function qid(q) { return q.skill + ':' + q.tier + ':' + q.variant; }
 
 // How many variants exist for a domain at a given tier (A/B/C/D = up to 4).
 // Computed from the bank so adding more variants later needs no code change.
@@ -3731,15 +3739,18 @@ function variantsAvailable(dom, tier) {
 function questionsForRoom(idx) {
   const dom = ROOM_DOMAINS[idx];
   if (dom === 'final') {
-    // Mixed finale: 4 questions sampled across all 8 domains, rotating
-    // through each domain's variants so restarts see a different mix.
+    // Mixed finale: 4 questions sampled across 4 domains. Prefer questions
+    // the player has NOT already answered this cycle (any skill/variant at
+    // this tier), so the final exam feels fresh rather than a rerun.
     const doms = ['rw-ii','m-alg','rw-cs','m-adv','rw-eoi','m-psda','rw-sec','m-geo'];
     const picked = [];
     for (let i = 0; i < 4; i++) {
       const d = doms[(roomVariant[idx] + i * 2) % 8];
-      const v = roomVariant[idx] % variantsAvailable(d, cycle);
-      const pool = skillBank().filter(q => q.domain === d && q.tier === cycle && q.variant === v);
-      if (pool.length) picked.push(pool[(cycle + i) % pool.length]);
+      const pool = skillBank().filter(q => q.domain === d && q.tier === cycle);
+      if (!pool.length) continue;
+      const fresh = pool.filter(q => !seenThisCycle.has(qid(q)) && !picked.includes(q));
+      const choose = fresh.length ? fresh : pool;
+      picked.push(choose[(roomVariant[idx] + i) % choose.length]);
     }
     return picked;
   }
