@@ -612,6 +612,12 @@ body {
 <script src="bank-adv.js"></script>
 <script src="bank-psda.js"></script>
 <script src="bank-geo.js"></script>
+<!-- C & D variants (variant 2 & 3) — more problems before a room's questions repeat -->
+<script src="bank-rw-cd.js"></script>
+<script src="bank-alg-cd.js"></script>
+<script src="bank-adv-cd.js"></script>
+<script src="bank-psda-cd.js"></script>
+<script src="bank-geo-cd.js"></script>
 <script>
 'use strict';
 // ══════════════════════════════════════════════════════════════
@@ -3705,21 +3711,31 @@ function markMastery(q, correct) {
 
 function skillBank() { return window.SKILL_BANK || []; }
 
+// How many variants exist for a domain at a given tier (A/B/C/D = up to 4).
+// Computed from the bank so adding more variants later needs no code change.
+function variantsAvailable(dom, tier) {
+  const set = new Set();
+  for (const q of skillBank()) if (q.domain === dom && q.tier === tier) set.add(q.variant);
+  return set.size || 1;
+}
+
 function questionsForRoom(idx) {
-  const v = roomVariant[idx] % 2;
   const dom = ROOM_DOMAINS[idx];
   if (dom === 'final') {
     // Mixed finale: 4 questions sampled across all 8 domains, rotating
-    // with the variant so restarts see a different mix.
+    // through each domain's variants so restarts see a different mix.
     const doms = ['rw-ii','m-alg','rw-cs','m-adv','rw-eoi','m-psda','rw-sec','m-geo'];
     const picked = [];
     for (let i = 0; i < 4; i++) {
-      const d = doms[(v + i * 2) % 8];
+      const d = doms[(roomVariant[idx] + i * 2) % 8];
+      const v = roomVariant[idx] % variantsAvailable(d, cycle);
       const pool = skillBank().filter(q => q.domain === d && q.tier === cycle && q.variant === v);
       if (pool.length) picked.push(pool[(cycle + i) % pool.length]);
     }
     return picked;
   }
+  // Room retries cycle A -> B -> C -> D -> A ... via roomVariant[idx].
+  const v = roomVariant[idx] % variantsAvailable(dom, cycle);
   return skillBank()
     .filter(q => q.domain === dom && q.tier === cycle && q.variant === v)
     .sort((a, b) => a.skill.localeCompare(b.skill));
