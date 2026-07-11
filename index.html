@@ -2748,15 +2748,24 @@ function addContinueBtn(container, label, cb) {
   return btn;
 }
 
+// A SINGLE reused illustration canvas for the whole game. Creating a fresh
+// canvas per question/room leaks backing-store memory on iOS (it doesn't
+// free detached canvases promptly), which cumulatively trips the canvas
+// memory cap a dozen-plus rooms in and freezes the game. Reusing one caps it.
+let sharedIllus = null;
+
 function section(title, story, challengeLabel) {
   const panel = document.getElementById('challenge-panel');
   panel.innerHTML = '';
 
-  // Room illustration canvas
-  const illus = document.createElement('canvas');
-  illus.width = 600;
-  illus.height = 220;
-  illus.style.cssText = 'width:100%;height:auto;border-radius:8px;display:block;border:1px solid rgba(0,180,255,0.15);margin-bottom:2px;';
+  // Room illustration canvas — reused, never reallocated.
+  if (!sharedIllus) {
+    sharedIllus = document.createElement('canvas');
+    sharedIllus.width = 600;
+    sharedIllus.height = 220;
+    sharedIllus.style.cssText = 'width:100%;height:auto;border-radius:8px;display:block;border:1px solid rgba(0,180,255,0.15);margin-bottom:2px;';
+  }
+  const illus = sharedIllus;
   panel.appendChild(illus);
   // Draw illustration for the current room
   drawRoomIllustration(currentRoom, illus);
