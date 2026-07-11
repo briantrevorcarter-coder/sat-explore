@@ -1339,32 +1339,38 @@ function drawDarkness() {
 }
 
 function drawFrame(ts) {
-  const dt = Math.min((ts - lastTime) / 1000, 0.05);
-  lastTime = ts;
+  // Everything is wrapped so that a single failed frame (e.g. a transient
+  // canvas-context loss on mobile) can never permanently kill the loop and
+  // lock the player out — we always schedule the next frame.
+  try {
+    const dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
 
-  updatePlayer(dt);
+    updatePlayer(dt);
 
-  ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, H);
 
-  // Space background
-  ctx.fillStyle = '#000006';
-  ctx.fillRect(0, 0, W, H);
+    // Space background
+    ctx.fillStyle = '#000006';
+    ctx.fillRect(0, 0, W, H);
 
-  // Stars
-  drawStars();
+    // Stars
+    drawStars();
 
-  // Station map
-  drawStation();
+    // Station map
+    drawStation();
 
-  // Player
-  drawPlayer();
+    // Player
+    drawPlayer();
 
-  // Darkness/vignette
-  drawDarkness();
+    // Darkness/vignette
+    drawDarkness();
 
-  // Remote pilots drawn on top of the vignette so they stay visible
-  drawRemotePlayers();
-
+    // Remote pilots drawn on top of the vignette so they stay visible
+    drawRemotePlayers();
+  } catch (e) {
+    if (window.track) track('render_error', { message: String(e && e.message || e) });
+  }
   animFrame = requestAnimationFrame(drawFrame);
 }
 
@@ -1658,6 +1664,12 @@ function startGame() {
   setTimeout(() => {
     introEl.style.display = 'none';
     titleCv.style.display = 'none';
+    // Release the full-screen title canvas's backing store. On mobile — iOS
+    // Safari especially — total canvas memory is capped; leaving this
+    // allocated alongside the game canvas and per-room illustration canvases
+    // can trip that cap a few rooms in, which corrupts EVERY canvas (the
+    // "garbled + frozen" bug). Zeroing it frees that memory for good.
+    titleCanvas.width = 0; titleCanvas.height = 0; titleStars = [];
     document.getElementById('audio-nudge').style.display = 'none';
     document.getElementById('title-mute-btn').style.display = 'none';
 
@@ -4112,7 +4124,12 @@ document.getElementById('crew-copy').addEventListener('click', e => copyCode(e.c
 // ══════════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════════
-window.addEventListener('resize', () => { if(gameStarted) resize(); });
+function onViewportChange() { if (gameStarted) resize(); }
+window.addEventListener('resize', onViewportChange);
+window.addEventListener('orientationchange', onViewportChange);
+// Mobile browsers resize the visual viewport (address bar, on-screen keyboard)
+// without always firing 'resize' — keep the canvas in sync.
+if (window.visualViewport) window.visualViewport.addEventListener('resize', onViewportChange);
 
 document.getElementById('start-btn').addEventListener('click', () => { tryUnlockAudio(); startGame(); });
 // Clicking anywhere on title screen unlocks audio
