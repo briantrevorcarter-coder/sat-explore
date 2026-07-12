@@ -672,6 +672,14 @@ function stopNodes(nodes) {
   nodes.length = 0;
 }
 
+// Disconnect one-shot audio nodes once playback ends, so finished sounds
+// don't stay attached to the audio graph. Without this, hundreds of
+// oscillators/gains accumulate over a long session and iOS never frees
+// them — the cause of the cumulative late-game freeze on mobile.
+function cleanupOnEnd(osc, ...nodes) {
+  osc.onended = () => { try { osc.disconnect(); nodes.forEach(n => n.disconnect()); } catch (e) {} };
+}
+
 // Build a reverb-like convolver for atmosphere
 function makeReverb(duration=2, decay=2) {
   const len = audioCtx.sampleRate * duration;
@@ -756,6 +764,7 @@ function startAmbientMusic() {
     env.gain.linearRampToValueAtTime(0, now + dur);
     osc.connect(env); env.connect(reverb); env.connect(busGain);
     osc.start(now); osc.stop(now + dur + 0.1);
+    cleanupOnEnd(osc, env);
     const nextDelay = 5000 + Math.random() * 9000;
     setTimeout(scheduleMelody, nextDelay);
   }
@@ -818,6 +827,7 @@ function playSuccess() {
     env.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
     osc.connect(env); env.connect(masterGain);
     osc.start(t); osc.stop(t + 0.6);
+    cleanupOnEnd(osc, env);
   });
 }
 
@@ -835,6 +845,7 @@ function playFailure() {
     env.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
     osc.connect(env); env.connect(masterGain);
     osc.start(t); osc.stop(t + 0.5);
+    cleanupOnEnd(osc, env);
   });
 }
 
@@ -852,6 +863,7 @@ function playVictory() {
     env.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
     osc.connect(env); env.connect(masterGain);
     osc.start(t); osc.stop(t + 0.9);
+    cleanupOnEnd(osc, env);
   });
 }
 
@@ -866,6 +878,7 @@ function playEnterRoom() {
   env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
   osc.connect(env); env.connect(masterGain);
   osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+  cleanupOnEnd(osc, env);
 }
 
 // ══════════════════════════════════════════════════════════════
