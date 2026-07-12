@@ -21,6 +21,30 @@
   window.track = function (ev, props) {
     try { if (window.posthog && window.POSTHOG_KEY) window.posthog.capture(ev, Object.assign({ app: 'sat-explore' }, props || {})); } catch (e) {}
   };
+
+  // Diagnostic: surface any runtime error ON SCREEN (so it can be read on a
+  // phone) and report it to PostHog. Deduped per message so it never floods.
+  window.__errSeen = {};
+  window.logGameError = function (where, err) {
+    try {
+      var msg = (err && (err.message || err.toString())) || String(err);
+      var key = where + '|' + msg;
+      if (window.__errSeen[key]) return;
+      window.__errSeen[key] = 1;
+      if (window.track) window.track('js_error', { where: where, message: String(msg).slice(0, 300) });
+      var el = document.getElementById('err-banner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'err-banner';
+        el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:rgba(170,20,40,.96);color:#fff;font:12px/1.45 monospace;padding:10px 12px;border-radius:8px;white-space:pre-wrap;box-shadow:0 2px 12px rgba(0,0,0,.5)';
+        el.addEventListener('click', function () { el.remove(); });
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.textContent = '⚠ ' + where + ': ' + msg + '\n(tap to dismiss)';
+    } catch (e) {}
+  };
+  window.addEventListener('error', function (e) { window.logGameError('window', e.error || e.message); });
+  window.addEventListener('unhandledrejection', function (e) { window.logGameError('promise', e.reason); });
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1375,7 +1399,7 @@ function drawFrame(ts) {
     // Remote pilots drawn on top of the vignette so they stay visible
     drawRemotePlayers();
   } catch (e) {
-    if (window.track) track('render_error', { message: String(e && e.message || e) });
+    if (window.logGameError) window.logGameError('render', e);
   }
   animFrame = requestAnimationFrame(drawFrame);
 }
