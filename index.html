@@ -1711,6 +1711,22 @@ function startGame() {
     document.getElementById('game-hud').style.transition = 'opacity 1s ease';
 
     gameStarted = true;
+    // DEV fast-forward: ?cycle=1 or ?cycle=2 starts at that tier so the
+    // later-cycle behavior can be reached without replaying everything.
+    // ?room=N (with ?cycle) marks the earlier rooms of that cycle cleared.
+    try {
+      const p = new URLSearchParams(location.search);
+      const startCycle = parseInt(p.get('cycle'), 10);
+      if (!isNaN(startCycle) && startCycle >= 0 && startCycle <= 2) {
+        cycle = startCycle; seenThisCycle = new Set();
+      }
+      const startRoom = parseInt(p.get('room'), 10);
+      if (!isNaN(startRoom) && startRoom > 0 && startRoom < 9) {
+        for (let r = 0; r < startRoom; r++) roomDone[r] = true;
+        const rm = rooms[startRoom];
+        player.x = rm.x + rm.w / 2 - player.w / 2; player.y = 450;
+      }
+    } catch (e) {}
     resize();
     camX = 0; camY = 0;
     lastTime = performance.now();
