@@ -452,6 +452,16 @@ body {
 .feedback.good { border: 1px solid var(--green); background: rgba(0,255,136,.08); color: var(--green); }
 .feedback.bad { border: 1px solid var(--red); background: rgba(255,68,102,.08); color: var(--red); }
 .sub-progress { font-family: var(--font-mono); font-size: .7rem; color: var(--text-dim); }
+
+/* 80% pass gate — strike circles + caption + warning */
+.strike-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 2px; flex-wrap: wrap; }
+.strike-dots { display: inline-flex; gap: 7px; }
+.sdot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--blue-dim); background: transparent; transition: background .2s, border-color .2s, box-shadow .2s; }
+.sdot.hit { background: var(--red); border-color: var(--red); box-shadow: 0 0 9px rgba(255,68,102,.7); }
+.strike-cap { font-family: var(--font-mono); font-size: .66rem; color: var(--text-dim); letter-spacing: .03em; }
+.strike-warn { font-family: var(--font-mono); font-size: .8rem; color: var(--amber); background: rgba(255,170,0,.1); border: 1px solid rgba(255,170,0,.4); border-radius: 6px; padding: 8px 12px; margin: 8px 0 2px; }
+.hud-strikes { display: inline-flex; gap: 5px; align-items: center; }
+.hud-strikes .sdot { width: 12px; height: 12px; border-width: 2px; }
 .chart-area { background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }
 .chart-title { font-family: var(--font-mono); font-size: .7rem; color: var(--amber); margin-bottom: 12px; }
 .bar-chart { display: flex; align-items: flex-end; gap: 10px; height: 120px; }
@@ -575,7 +585,7 @@ body {
     <span class="hud-act" id="hud-act">ACT I — AWAKENING</span>
     <span class="hud-level" id="hud-level">LEVEL 1 — FOUNDATIONS</span>
     <span class="hud-loc" id="hud-loc">CORRIDOR</span>
-    <span class="hud-strikes" id="hud-strikes" title="3 errors re-lock the level">🟢🟢🟢</span>
+    <span class="hud-strikes" id="hud-strikes" title="Pass at 80%"></span>
     <span class="hud-score">SCORE: <span id="hud-score">0</span> / <span id="hud-total">0</span></span>
     <button id="mute-btn">♪ MUTE</button>
     <button id="skills-btn" onclick="toggleSkillMatrix()" style="background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--blue);font-family:var(--font-mono);font-size:.7rem;padding:4px 10px;border-radius:4px;cursor:pointer;">⌗ SKILLS</button>
@@ -907,9 +917,28 @@ const DIFF_LEVELS = [
 const CYCLE_NAMES = ['FOUNDATION', 'INTERMEDIATE', 'ADVANCED'];
 let cycle = 0; // escape attempt #: 0=Foundation, 1=Intermediate, 2=Advanced
 let roomVariant = new Array(9).fill(0); // per-room question-set rotation (A/B)
-let currentLimit = 3;                   // misses allowed before THIS room restarts
+let currentLimit = 2;                   // misses allowed before THIS room restarts
 let strikes = 0;
+let roomToken = 0;               // bumped each room build; stale callbacks no-op
 let levelVariant = [0, 0, 0, 0]; // which question set each level is currently on
+
+// Strike circles: `currentLimit` circles, `strikes` of them filled red.
+function strikeDotsHTML() {
+  let s = '';
+  for (let i = 0; i < currentLimit; i++) s += '<span class="sdot' + (i < strikes ? ' hit' : '') + '"></span>';
+  return s;
+}
+function updateStrikeUI() {
+  const d = document.getElementById('strike-dots'); if (d) d.innerHTML = strikeDotsHTML();
+  const h = document.getElementById('hud-strikes'); if (h) h.innerHTML = strikeDotsHTML();
+}
+function showStrikeWarning() {
+  const w = document.getElementById('strike-warn'); if (!w) return;
+  w.textContent = currentRoom === 8
+    ? '⚠ WARNING: one more incorrect answer aborts the launch and restarts the ENTIRE LEVEL.'
+    : '⚠ WARNING: one more incorrect answer and this room restarts from the beginning.';
+  w.style.display = 'block';
+}
 
 function levelOfRoom(idx) { return DIFF_LEVELS.findIndex(L => L.rooms.includes(idx)); }
 function variantFor(roomIdx) { return levelVariant[levelOfRoom(roomIdx)] % 3; }
@@ -1907,10 +1936,9 @@ function updateHUD() {
     document.getElementById('hud-level').textContent =
       `CYCLE ${cycle + 1}/3 · ${CYCLE_NAMES[cycle]} · ${DIFF_LEVELS[levelOfRoom(next)].name}`;
   }
-  document.getElementById('hud-strikes').textContent =
-    '🟢'.repeat(Math.max(0, currentLimit - strikes)) + '🔴'.repeat(Math.min(currentLimit, strikes));
+  document.getElementById('hud-strikes').innerHTML = strikeDotsHTML();
   document.getElementById('hud-strikes').title =
-    `${currentLimit} misses in this room and it restarts with fresh questions`;
+    `Pass at 80% — ${currentLimit} misses restarts ${currentRoom === 8 ? 'the whole level' : 'this room'}`;
 }
 
 function showTransition(text, sub, cb, delay=2600) {
@@ -2856,11 +2884,16 @@ function recordAnswer(correct) {
       mpSend({ t: 'strike' });
     } else {
       strikes++;
+      updateStrikeUI();
       if (strikes >= currentLimit) {
         updateHUD();
-        roomFailure();
+        // Let the last circle (now red) and the answer feedback register for a
+        // beat, then trigger the restart message.
+        const failFn = currentRoom === 8 ? launchFailure : roomFailure;
+        setTimeout(failFn, 2600);
         return;
       }
+      if (strikes === currentLimit - 1) showStrikeWarning(); // one miss from restart
     }
   }
   updateHUD();
@@ -2872,6 +2905,7 @@ function recordAnswer(correct) {
 function roomFailure() {
   const idx = currentRoom;
   track('room_restarted', { room: idx, domain: ROOM_DOMAINS[idx], cycle: cycle + 1, missLimit: currentLimit });
+  roomToken++;             // invalidate any pending question callbacks
   roomVariant[idx]++;      // rotate to the other question set for the retry
   strikes = 0;
   document.getElementById('challenge-overlay').classList.remove('show');
@@ -2889,30 +2923,31 @@ function roomFailure() {
   );
 }
 
-// Three strikes: the current level's rooms re-lock, security rotates the
-// door codes (a fresh question variant), and you're thrown back to the
-// start of the level.
-function levelFailure() {
-  const li = Math.max(0, levelOfRoom(currentRoom >= 0 ? currentRoom : roomDone.findIndex(d => !d)));
-  const L = DIFF_LEVELS[li];
-  levelVariant[li]++;
+// Failing the Launch finale (4th miss) aborts the launch and restarts the
+// ENTIRE level (this whole cycle): every room re-locks and you begin again at
+// the first room, with fresh question subsets.
+function launchFailure() {
+  track('level_restarted', { cycle: cycle + 1 });
+  roomToken++;                 // invalidate any pending question callbacks
   strikes = 0;
+  roomVariant = new Array(9).fill(0);
+  seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set();
+  roomDone.fill(false);
   document.getElementById('challenge-overlay').classList.remove('show');
   playFailure();
-  L.rooms.forEach(r => roomDone[r] = false);
   showTransition(
-    '⚠ CRITICAL FAULT — three errors detected. Station security re-locks the deck and rotates every access code. You must re-clear this level — but the challenges will not be the same ones.',
-    `${L.name} — RESTARTING`,
+    '⚠ LAUNCH ABORTED — too many errors on the final gauntlet. Station security re-locks every deck. You must clear the level again from the start, pilot.',
+    `${CYCLE_NAMES[cycle]} TIER — RESTARTING FROM THE BEGINNING`,
     () => {
       challengeActive = false;
       currentRoom = -1;
-      const firstRoom = rooms[L.rooms[0]];
-      player.x = firstRoom.x + firstRoom.w / 2 - player.w / 2;
+      const r = rooms[0];
+      player.x = r.x + r.w / 2 - player.w / 2;
       player.y = 450;
       updateHUD();
       mpSendProgress();
     },
-    3800
+    4200
   );
 }
 
@@ -3881,16 +3916,17 @@ function questionsForRoom(idx) {
   return buildRoomSet(dom, cycle, ROOM_SIZE, roomVariant[idx] || 0);
 }
 
-// Misses allowed in a room scale to its size: roughly a third of its
-// questions, but never fewer than 2 so a single slip never restarts a room.
+// 80% pass gate, shown as strike circles. A skill room (5 questions) allows
+// 1 miss and restarts on the 2nd (2 circles). The Launch room (20 questions)
+// allows 3 misses and restarts the WHOLE level on the 4th (4 circles).
 function roomStrikeLimit(idx) {
-  const n = questionsForRoom(idx).length || 3;
-  return Math.max(2, Math.ceil(n / 3));
+  return idx === 8 ? 4 : 2;
 }
 
 function buildSkillRoom(idx) {
   currentRoom = idx;
   strikes = 0;
+  roomToken++;
   currentLimit = roomStrikeLimit(idx);
   updateHUD();
   const qs = questionsForRoom(idx);
@@ -3904,16 +3940,30 @@ function buildSkillRoom(idx) {
 }
 
 function showSkillQuestion(idx, qs, i) {
+  const myToken = roomToken;
   const q = qs[i];
   const { cb } = section(ROOM_NAMES[idx].toUpperCase(),
     i === 0 ? ROOM_STORIES[idx] : 'The next subsystem hums to life, waiting for input.',
     `${DOMAIN_LABELS[ROOM_DOMAINS[idx]]} — ${(q.name || q.skill).toUpperCase()}`);
   cb.appendChild(el('div','sub-progress',
     `System ${i + 1}/${qs.length} · ${CYCLE_NAMES[cycle]} tier · skill: ${q.name || q.skill}`));
+
+  // 80% pass gate — strike circles + rule caption, updated as they answer.
+  const dotsWrap = el('div','strike-row');
+  const dots = el('div','strike-dots'); dots.id = 'strike-dots'; dots.innerHTML = strikeDotsHTML();
+  const cap = el('div','strike-cap', idx === 8
+    ? 'Pass at 80%. Miss 4 and the entire level restarts.'
+    : 'Pass at 80%. Miss 2 and this room restarts.');
+  dotsWrap.appendChild(dots); dotsWrap.appendChild(cap);
+  cb.appendChild(dotsWrap);
+  const warn = el('div','strike-warn'); warn.id = 'strike-warn'; warn.style.display = 'none';
+  cb.appendChild(warn);
+
   if (q.passage) { const p = el('div','passage'); p.innerHTML = q.passage; cb.appendChild(p); }
   const qEl = el('div','challenge-q'); qEl.innerHTML = q.q; cb.appendChild(qEl);
 
   const proceed = () => {
+    if (myToken !== roomToken) return; // room was restarted — abandon stale flow
     if (i < qs.length - 1) showSkillQuestion(idx, qs, i + 1);
     else addContinueBtn(cb, idx === 8 ? '▶ LAUNCH' : '▶ SYSTEM RESTORED — CONTINUE', nextRoom);
   };
@@ -3939,7 +3989,7 @@ function showSkillQuestion(idx, qs, i) {
       fb.className = 'feedback show ' + (correct ? 'good' : 'bad');
       if (correct) playSuccess(); else playFailure();
       if (!correct) {
-        setTimeout(() => { if (!inp.isConnected) return;
+        setTimeout(() => { if (myToken !== roomToken || !inp.isConnected) return;
           busy = false; inp.disabled = false; btn.disabled = false;
           inp.className = 'answer-input'; inp.value = ''; fb.className = 'feedback'; totalQ--; }, 3200);
       } else setTimeout(proceed, 1800);
