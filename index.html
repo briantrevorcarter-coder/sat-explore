@@ -1731,7 +1731,7 @@ function startGame() {
       const p = new URLSearchParams(location.search);
       const startCycle = parseInt(p.get('cycle'), 10);
       if (!isNaN(startCycle) && startCycle >= 0 && startCycle <= 2) {
-        cycle = startCycle; seenThisCycle = new Set();
+        cycle = startCycle; seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set();
       }
       const startRoom = parseInt(p.get('room'), 10);
       if (!isNaN(startRoom) && startRoom > 0 && startRoom < 9) {
@@ -1818,7 +1818,7 @@ function nextRoom() {
           strikes = 0;
           levelVariant = [0, 0, 0, 0];
           roomVariant = new Array(9).fill(0);
-          seenThisCycle = new Set(); // fresh finale pool for the new tier
+          seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set(); // fresh trackers for the new tier
           currentRoom = -1;
           challengeActive = false;
           player.x = 240; player.y = 450;
@@ -1888,7 +1888,7 @@ function restartGame() {
   score = 0; totalQ = 0; currentRoom = -1; challengeActive = false;
   roomDone.fill(false); nearRoom = -1;
   strikes = 0; levelVariant = [0, 0, 0, 0]; roomVariant = new Array(9).fill(0); currentLimit = 3; cycle = 0;
-  seenThisCycle = new Set();
+  seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set();
   player.x = 240; player.y = 450;
   document.getElementById('completion-screen').classList.remove('show');
   document.getElementById('challenge-overlay').classList.remove('show');
@@ -3769,6 +3769,8 @@ function markMastery(q, correct) {
   track('question_answered', { skill: q.skill, name: q.name, domain: q.domain,
     tier: q.tier, cycle: cycle + 1, room: currentRoom, type: q.type, correct: !!correct });
   seenThisCycle.add(qid(q));
+  coveredThisCycle.add(q.skill);          // skill was shown this cycle
+  if (!correct) missedThisCycle.add(q.skill); // skill was missed this cycle
   const key = q.skill + ':' + q.tier;
   if (correct) { if (mastery[key] !== true) { mastery[key] = true; saveMastery(); } }
   else if (mastery[key] === undefined) { mastery[key] = false; saveMastery(); }
@@ -3776,10 +3778,17 @@ function markMastery(q, correct) {
 
 function skillBank() { return window.SKILL_BANK || []; }
 
-// Track the exact questions answered in the current cycle so the Launch
-// finale can serve fresh ones instead of repeating earlier rooms.
+// Per-cycle tracking. seenThisCycle = exact questions answered (skill:tier:variant),
+// coveredThisCycle = skills shown at all, missedThisCycle = skills answered wrong.
+// The Launch finale uses these to serve missed + never-covered skills.
 let seenThisCycle = new Set();
+let coveredThisCycle = new Set();
+let missedThisCycle = new Set();
 function qid(q) { return q.skill + ':' + q.tier + ':' + q.variant; }
+
+// Room sizing: every skill room is the same length; the finale is longer.
+const ROOM_SIZE = 5;
+const LAUNCH_SIZE = 10;
 
 // How many variants exist for a domain at a given tier (A/B/C/D = up to 4).
 // Computed from the bank so adding more variants later needs no code change.
@@ -3789,29 +3798,69 @@ function variantsAvailable(dom, tier) {
   return set.size || 1;
 }
 
+// Build a fixed-size set of questions for one domain at one tier. Covers
+// distinct skills first (rotating the starting skill by `offset` so different
+// visits/retries surface a different subset — important for math domains that
+// have more skills than fit in a room), then fills any remaining slots with
+// other variants of those skills (for small domains with < count skills).
+function buildRoomSet(dom, tier, count, offset) {
+  const bank = skillBank().filter(q => q.domain === dom && q.tier === tier);
+  if (!bank.length) return [];
+  const skills = [...new Set(bank.map(q => q.skill))].sort();
+  const n = skills.length;
+  const picked = [];
+  const used = new Set();
+  for (let k = 0; k < n && picked.length < count; k++) {
+    const s = skills[(offset + k) % n];
+    if (used.has(s)) continue;
+    const pool = bank.filter(q => q.skill === s);
+    picked.push(pool[offset % pool.length]);
+    used.add(s);
+  }
+  for (let pass = 0; picked.length < count && pass < 4; pass++) {
+    for (let k = 0; k < n && picked.length < count; k++) {
+      const s = skills[(offset + k) % n];
+      const pool = bank.filter(q => q.skill === s && !picked.includes(q));
+      if (pool.length) picked.push(pool[0]);
+    }
+  }
+  return picked.slice(0, count);
+}
+
+// The Launch finale: LAUNCH_SIZE questions drawn across ALL domains, ordered
+// by priority — skills the player MISSED this cycle first, then skills that
+// were never covered (because skill rooms only show ROOM_SIZE of a domain's
+// skills), then anything else. Prefers unseen variants so it isn't a rerun.
+function buildFinaleSet(idx) {
+  const tier = cycle;
+  const off = roomVariant[idx] || 0;
+  const bank = skillBank().filter(q => q.tier === tier);
+  const skillsAtTier = [...new Set(bank.map(q => q.skill))];
+
+  const order = [];
+  const add = s => { if (skillsAtTier.includes(s) && !order.includes(s)) order.push(s); };
+  [...missedThisCycle].forEach(add);                                  // 1) missed
+  skillsAtTier.filter(s => !coveredThisCycle.has(s)).forEach(add);    // 2) never covered
+  skillsAtTier.forEach(add);                                          // 3) everything else
+
+  const picked = [];
+  const pick = s => {
+    const pool = bank.filter(q => q.skill === s && !picked.includes(q));
+    if (!pool.length) return;
+    const fresh = pool.filter(q => !seenThisCycle.has(qid(q)));
+    const choose = fresh.length ? fresh : pool;
+    picked.push(choose[off % choose.length]);
+  };
+  for (const s of order) { if (picked.length >= LAUNCH_SIZE) break; pick(s); }
+  for (let pass = 0; picked.length < LAUNCH_SIZE && pass < 4; pass++)
+    for (const s of order) { if (picked.length >= LAUNCH_SIZE) break; pick(s); }
+  return picked.slice(0, LAUNCH_SIZE);
+}
+
 function questionsForRoom(idx) {
   const dom = ROOM_DOMAINS[idx];
-  if (dom === 'final') {
-    // Mixed finale: 4 questions sampled across 4 domains. Prefer questions
-    // the player has NOT already answered this cycle (any skill/variant at
-    // this tier), so the final exam feels fresh rather than a rerun.
-    const doms = ['rw-ii','m-alg','rw-cs','m-adv','rw-eoi','m-psda','rw-sec','m-geo'];
-    const picked = [];
-    for (let i = 0; i < 4; i++) {
-      const d = doms[(roomVariant[idx] + i * 2) % 8];
-      const pool = skillBank().filter(q => q.domain === d && q.tier === cycle);
-      if (!pool.length) continue;
-      const fresh = pool.filter(q => !seenThisCycle.has(qid(q)) && !picked.includes(q));
-      const choose = fresh.length ? fresh : pool;
-      picked.push(choose[(roomVariant[idx] + i) % choose.length]);
-    }
-    return picked;
-  }
-  // Room retries cycle A -> B -> C -> D -> A ... via roomVariant[idx].
-  const v = roomVariant[idx] % variantsAvailable(dom, cycle);
-  return skillBank()
-    .filter(q => q.domain === dom && q.tier === cycle && q.variant === v)
-    .sort((a, b) => a.skill.localeCompare(b.skill));
+  if (dom === 'final') return buildFinaleSet(idx);
+  return buildRoomSet(dom, cycle, ROOM_SIZE, roomVariant[idx] || 0);
 }
 
 // Misses allowed in a room scale to its size: roughly a third of its
