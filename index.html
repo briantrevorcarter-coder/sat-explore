@@ -3974,13 +3974,13 @@ function showSkillQuestion(idx, qs, i) {
     const btn = el('button','btn','CONFIRM');
     const fb = el('div','feedback');
     row.appendChild(inp); row.appendChild(btn); cb.appendChild(row); cb.appendChild(fb);
-    let busy = false, firstTry = true;
+    let busy = false;
     function attempt() {
       if (busy) return;
       const val = parseFloat(inp.value);
       if (isNaN(val)) return;
       const correct = val === q.ans;
-      if (firstTry) { markMastery(q, correct); firstTry = false; }
+      markMastery(q, correct);
       recordAnswer(correct);
       busy = true;
       inp.disabled = true; btn.disabled = true;
@@ -3988,11 +3988,8 @@ function showSkillQuestion(idx, qs, i) {
       fb.textContent = correct ? q.good : q.bad;
       fb.className = 'feedback show ' + (correct ? 'good' : 'bad');
       if (correct) playSuccess(); else playFailure();
-      if (!correct) {
-        setTimeout(() => { if (myToken !== roomToken || !inp.isConnected) return;
-          busy = false; inp.disabled = false; btn.disabled = false;
-          inp.className = 'answer-input'; inp.value = ''; fb.className = 'feedback'; totalQ--; }, 3200);
-      } else setTimeout(proceed, 1800);
+      // One attempt only — a miss moves on to the next question (no retry).
+      setTimeout(proceed, correct ? 1800 : 3400);
     }
     btn.onclick = attempt;
     inp.onkeydown = e => { if (e.key === 'Enter') attempt(); };
