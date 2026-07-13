@@ -3786,9 +3786,10 @@ let coveredThisCycle = new Set();
 let missedThisCycle = new Set();
 function qid(q) { return q.skill + ':' + q.tier + ':' + q.variant; }
 
-// Room sizing: every skill room is the same length; the finale is longer.
+// Room sizing: every skill room is the same length. The Launch finale size
+// is dynamic — every uncovered skill plus 3 extra (see buildFinaleSet).
 const ROOM_SIZE = 5;
-const LAUNCH_SIZE = 10;
+const LAUNCH_EXTRA = 3;
 
 // How many variants exist for a domain at a given tier (A/B/C/D = up to 4).
 // Computed from the bank so adding more variants later needs no code change.
@@ -3827,34 +3828,51 @@ function buildRoomSet(dom, tier, count, offset) {
   return picked.slice(0, count);
 }
 
-// The Launch finale: LAUNCH_SIZE questions drawn across ALL domains, ordered
-// by priority — skills the player MISSED this cycle first, then skills that
-// were never covered (because skill rooms only show ROOM_SIZE of a domain's
-// skills), then anything else. Prefers unseen variants so it isn't a rerun.
+// The Launch finale: a comprehensive final exam.
+//   1) ONE question for every skill NEVER covered this cycle (the math skills
+//      squeezed out of the 5-question rooms) — full coverage.
+//   2) LAUNCH_EXTRA (3) more: up to 3 on skills the player MISSED this cycle;
+//      if they missed fewer than 3, fill the rest with random Reading &
+//      Writing questions.
+// Every question is FRESH — a variant the player has not seen this cycle — so
+// nothing in the finale repeats what they answered in the level.
 function buildFinaleSet(idx) {
   const tier = cycle;
   const off = roomVariant[idx] || 0;
   const bank = skillBank().filter(q => q.tier === tier);
   const skillsAtTier = [...new Set(bank.map(q => q.skill))];
-
-  const order = [];
-  const add = s => { if (skillsAtTier.includes(s) && !order.includes(s)) order.push(s); };
-  [...missedThisCycle].forEach(add);                                  // 1) missed
-  skillsAtTier.filter(s => !coveredThisCycle.has(s)).forEach(add);    // 2) never covered
-  skillsAtTier.forEach(add);                                          // 3) everything else
-
   const picked = [];
-  const pick = s => {
-    const pool = bank.filter(q => q.skill === s && !picked.includes(q));
-    if (!pool.length) return;
-    const fresh = pool.filter(q => !seenThisCycle.has(qid(q)));
-    const choose = fresh.length ? fresh : pool;
-    picked.push(choose[off % choose.length]);
-  };
-  for (const s of order) { if (picked.length >= LAUNCH_SIZE) break; pick(s); }
-  for (let pass = 0; picked.length < LAUNCH_SIZE && pass < 4; pass++)
-    for (const s of order) { if (picked.length >= LAUNCH_SIZE) break; pick(s); }
-  return picked.slice(0, LAUNCH_SIZE);
+  const pickedIds = new Set();
+
+  function pickFresh(candidates) {
+    const pool = candidates.filter(q => !seenThisCycle.has(qid(q)) && !pickedIds.has(qid(q)));
+    if (!pool.length) return false;
+    const q = pool[off % pool.length];
+    picked.push(q); pickedIds.add(qid(q));
+    return true;
+  }
+
+  // 1) every uncovered skill — one fresh question each
+  skillsAtTier.filter(s => !coveredThisCycle.has(s)).sort()
+    .forEach(s => pickFresh(bank.filter(q => q.skill === s)));
+
+  // 2) up to LAUNCH_EXTRA questions on missed skills (fresh variants)
+  let extra = 0;
+  for (const s of [...missedThisCycle].filter(s => skillsAtTier.includes(s))) {
+    if (extra >= LAUNCH_EXTRA) break;
+    if (pickFresh(bank.filter(q => q.skill === s))) extra++;
+  }
+
+  // 3) fill any remaining extra slots with random fresh Reading & Writing questions
+  if (extra < LAUNCH_EXTRA) {
+    const rw = bank.filter(q => q.domain.indexOf('rw-') === 0);
+    for (let i = rw.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = rw[i]; rw[i] = rw[j]; rw[j] = t; }
+    for (const q of rw) {
+      if (extra >= LAUNCH_EXTRA) break;
+      if (!seenThisCycle.has(qid(q)) && !pickedIds.has(qid(q))) { picked.push(q); pickedIds.add(qid(q)); extra++; }
+    }
+  }
+  return picked;
 }
 
 function questionsForRoom(idx) {
