@@ -9,7 +9,10 @@ const { WebSocketServer } = require('ws');
 
 const MAX_STRIKES = 3;
 const app = express();
-app.use(express.static(__dirname));
+// Landing page at the root, the game at /play. Assets served statically.
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'landing.html')));
+app.get('/play', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.use(express.static(__dirname, { index: false }));
 
 const PORT = process.env.PORT || 3200;
 const server = app.listen(PORT, () => console.log(`Axiom-7 mission server at http://localhost:${PORT}`));

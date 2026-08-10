@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAT Explore: A Space Odyssey — free story-driven SAT practice</title>
+<meta name="description" content="Wake on a derelict space station and escape by solving real SAT questions. All 48 SAT skills, 3 levels, solo or with friends. Free, no signup, plays in your browser." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #05081a; --bg2: #0a0f2e; --blue: #00d4ff; --blue-dim: #0099bb;
+    --amber: #ffaa00; --green: #00ff88; --text: #c8d8e8; --text-dim: #7890a0;
+    --border: #1a3050; --mono: 'Courier New', Courier, monospace;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #16224e 0%, #0a0f2e 45%, #05081a 100%);
+    color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden;
+    position: relative;
+  }
+  /* Starfield */
+  .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .star { position: absolute; background: #fff; border-radius: 50%; animation: tw 3s infinite; }
+  @keyframes tw { 0%,100% { opacity: .25 } 50% { opacity: .9 } }
+  .wrap { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* Hero */
+  header.hero { text-align: center; padding: 64px 20px 40px; }
+  .logo {
+    font-family: var(--mono); font-size: clamp(2.4rem, 8vw, 4.4rem); color: var(--blue);
+    letter-spacing: .18em; text-shadow: 0 0 40px var(--blue), 0 0 90px rgba(0,212,255,.35); line-height: 1.05;
+  }
+  .subtitle {
+    font-family: var(--mono); font-size: clamp(1rem, 3.4vw, 1.7rem); color: var(--blue);
+    letter-spacing: .26em; text-shadow: 0 0 24px rgba(0,212,255,.5); margin-top: 10px; text-transform: uppercase;
+  }
+  .tagline { max-width: 620px; margin: 22px auto 0; font-size: clamp(1rem, 2.6vw, 1.2rem); line-height: 1.6; color: #d6e2f2; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 10px; margin-top: 30px;
+    background: linear-gradient(135deg, #00d4ff, #0077cc); color: #001018;
+    font-family: var(--mono); font-weight: 800; font-size: 1.15rem; letter-spacing: .1em;
+    padding: 16px 44px; border-radius: 10px; text-decoration: none;
+    box-shadow: 0 0 30px rgba(0,212,255,.5); transition: transform .12s, box-shadow .2s;
+  }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 0 46px rgba(0,212,255,.75); }
+  .cta-note { display: block; margin-top: 14px; font-size: .82rem; color: var(--text-dim); font-family: var(--mono); letter-spacing: .04em; }
+
+  /* Story strip */
+  .story {
+    background: rgba(0,20,45,.55); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px 30px; margin: 20px auto 0; max-width: 720px; font-size: 1.02rem; line-height: 1.7;
+  }
+  .story b { color: var(--blue); }
+
+  /* Section titles */
+  h2.sec { font-family: var(--mono); color: var(--amber); letter-spacing: .12em; font-size: 1.05rem;
+    text-align: center; margin: 56px 0 22px; text-transform: uppercase; }
+
+  /* Feature grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .card {
+    background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px; transition: border-color .15s, transform .12s;
+  }
+  .card:hover { border-color: var(--blue-dim); transform: translateY(-2px); }
+  .card .ic { font-size: 1.9rem; }
+  .card h3 { font-size: 1.05rem; margin: 10px 0 6px; color: #eaf2ff; }
+  .card p { font-size: .92rem; color: var(--text-dim); line-height: 1.55; }
+
+  /* Steps */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .step { text-align: center; padding: 20px; }
+  .step .n {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+    border-radius: 50%; border: 2px solid var(--blue); color: var(--blue); font-family: var(--mono);
+    font-size: 1.2rem; font-weight: 800; margin-bottom: 12px; box-shadow: 0 0 18px rgba(0,212,255,.4);
+  }
+  .step h3 { font-size: 1rem; margin-bottom: 6px; color: #eaf2ff; }
+  .step p { font-size: .9rem; color: var(--text-dim); line-height: 1.55; }
+
+  /* Bottom CTA + footer */
+  .final { text-align: center; margin: 60px 0 20px; }
+  footer { text-align: center; padding: 40px 20px 56px; color: var(--text-dim); font-size: .8rem; font-family: var(--mono); }
+  footer .beta { color: var(--amber); }
+  @media (max-width: 560px) { header.hero { padding-top: 44px; } .story { padding: 22px; } }
+</style>
+</head>
+<body>
+<div class="stars" id="stars"></div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="logo">SAT&nbsp;EXPLORE</div>
+    <div class="subtitle">A Space Odyssey</div>
+    <p class="tagline">You wake alone on a dying space station. The only way home is to fix its systems — by answering real SAT questions. Learn the whole test without it feeling like studying.</p>
+    <a class="cta" href="/play">▶ PLAY NOW — FREE</a>
+    <span class="cta-note">No signup · plays in your browser · works on your phone</span>
+
+    <div class="story">
+      Emergency lighting flickers. Your cryo-pod hisses open aboard <b>Axiom-7</b>, and every screen is screaming a warning. The reactor's down, comms are garbled, navigation is dark. Fix each room's systems — <b>reading, writing, and math</b> — power the ship back up, and blast off before it's too late. Clear the <b>Launch gauntlet</b> to escape.
+    </div>
+  </header>
+
+  <h2 class="sec">◆ Why you'll actually want to play</h2>
+  <div class="grid">
+    <div class="card"><div class="ic">🧠</div><h3>The whole SAT</h3><p>All 48 SAT skills — 11 Reading &amp; Writing and 37 Math — with 576 questions and real explanations for every answer.</p></div>
+    <div class="card"><div class="ic">🎚️</div><h3>Three levels</h3><p>Play at Foundation, Intermediate, or Advanced. Beat one, then decide whether to climb higher.</p></div>
+    <div class="card"><div class="ic">🚀</div><h3>It's a game, not a worksheet</h3><p>Explore rooms, restore ship systems, and escape a derelict station — the practice is baked into the story.</p></div>
+    <div class="card"><div class="ic">👥</div><h3>Play with friends</h3><p>Go solo, or start a multiplayer mission — race your friends or team up in co-op with a shared ship.</p></div>
+    <div class="card"><div class="ic">📊</div><h3>See your growth</h3><p>A skill matrix tracks what you've mastered and what still needs work, tier by tier.</p></div>
+    <div class="card"><div class="ic">🎯</div><h3>80% to pass</h3><p>Every room and the final gauntlet have a clear bar — miss too many and you retry, so you truly learn it.</p></div>
+  </div>
+
+  <h2 class="sec">◆ How it works</h2>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><h3>Pick your level</h3><p>Foundation, Intermediate, or Advanced — start wherever you're at.</p></div>
+    <div class="step"><div class="n">2</div><h3>Explore &amp; solve</h3><p>Move through the station, enter each room, and answer to bring its systems online.</p></div>
+    <div class="step"><div class="n">3</div><h3>Escape</h3><p>Clear the 10-math / 10-reading Launch gauntlet and blast off — then level up.</p></div>
+  </div>
+
+  <div class="final">
+    <a class="cta" href="/play">▶ START YOUR MISSION</a>
+    <span class="cta-note">Free forever · no account needed</span>
+  </div>
+
+</div>
+
+<footer>
+  SAT Explore: A Space Odyssey &nbsp;·&nbsp; <span class="beta">open beta</span> &nbsp;·&nbsp; built for high-school SAT prep<br>
+  Not affiliated with the College Board. "SAT" is a trademark of the College Board.
+</footer>
+
+<script>
+  // lightweight starfield
+  (function () {
+    const w = document.getElementById('stars');
+    for (let i = 0; i < 80; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      const sz = Math.random() * 2.2 + 0.5;
+      s.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;left:' + (Math.random()*100) + '%;top:' + (Math.random()*100) + '%;animation-delay:' + (Math.random()*3) + 's';
+      w.appendChild(s);
+    }
+  })();
+</script>
+</body>
+</html>
