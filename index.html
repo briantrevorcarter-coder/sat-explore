@@ -191,6 +191,14 @@ body {
   0%,100%{text-shadow:0 0 20px var(--blue),0 0 50px rgba(0,212,255,.35)}
   50%{text-shadow:0 0 50px var(--blue),0 0 100px rgba(0,212,255,.55),0 0 160px rgba(0,212,255,.2)}
 }
+.intro-subtitle {
+  font-family: var(--font-mono);
+  font-size: clamp(2.2rem, 7vw, 4rem);
+  color: var(--blue);
+  letter-spacing: .12em;
+  text-shadow: 0 0 40px var(--blue), 0 0 80px rgba(0,212,255,.4), 0 0 120px rgba(0,212,255,.15);
+  margin-top: 8px;
+}
 .intro-dash {
   width: min(320px, 60vw); height: 1px;
   background: linear-gradient(90deg, transparent, rgba(0,212,255,.5), transparent);
@@ -531,6 +539,7 @@ body {
 <div id="intro-screen">
   <div id="title-content">
     <div class="intro-logo">SAT — EXPLORE</div>
+    <div class="intro-subtitle">A Space Odyssey</div>
     <div class="intro-dash"></div>
     <div class="intro-tagline" id="tagline"></div>
     <button class="intro-begin-btn" id="start-btn">▶ BEGIN MISSION</button>
