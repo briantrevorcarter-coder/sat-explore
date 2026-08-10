@@ -227,5 +227,39 @@
     }
   })();
 </script>
+
+<!-- iOS "Add to Home Screen" prompt (only Safari on iOS supports it) -->
+<div id="ios-install" style="display:none;position:fixed;left:10px;right:10px;top:10px;z-index:9999;background:rgba(10,15,46,.97);border:1px solid var(--blue);border-radius:12px;padding:12px 40px 12px 14px;box-shadow:0 4px 22px rgba(0,0,0,.55);font-family:var(--sans);">
+  <button id="ios-x" aria-label="Dismiss" style="position:absolute;top:6px;right:10px;background:none;border:none;color:var(--text-dim);font-size:1.3rem;line-height:1;cursor:pointer;">×</button>
+  <div id="ios-msg" style="font-size:.85rem;color:var(--text);line-height:1.5;"></div>
+</div>
+
+<script>
+  (function () {
+    var ua = navigator.userAgent;
+    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = ('standalone' in navigator && navigator.standalone) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    // Only Safari on iOS can "Add to Home Screen". Chrome/Firefox/in-app browsers cannot.
+    var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|mercury|GSA|FBAN|FBAV|Instagram|Line\//i.test(ua);
+    var dismissed = false;
+    try { dismissed = localStorage.getItem('ios_install_dismissed') === '1'; } catch (e) {}
+
+    if (isIOS && !standalone && !dismissed) {
+      var msg = document.getElementById('ios-msg');
+      if (isSafari) {
+        msg.innerHTML = '📲 <b>Play like a real app:</b> tap the <b>Share</b> button (the square with an ↑ at the bottom of Safari), then <b>“Add to Home Screen.”</b>';
+      } else {
+        msg.innerHTML = '📲 <b>Want it as an app?</b> Open this page in <b>Safari</b>, then tap <b>Share → “Add to Home Screen.”</b> (Only Safari can install it on iPhone/iPad.)';
+      }
+      document.getElementById('ios-install').style.display = 'block';
+      if (window.track) window.track('ios_install_prompt_shown', { safari: !!isSafari });
+      document.getElementById('ios-x').onclick = function () {
+        document.getElementById('ios-install').style.display = 'none';
+        try { localStorage.setItem('ios_install_dismissed', '1'); } catch (e) {}
+      };
+    }
+  })();
+</script>
 </body>
 </html>
