@@ -1,0 +1,16 @@
+{
+  "name": "SAT Explore: A Space Odyssey",
+  "short_name": "SAT Explore",
+  "description": "Escape a dying space station by answering SAT questions. Practice the SAT's skills across three levels — solo or with friends.",
+  "start_url": "/play",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05081a",
+  "theme_color": "#05081a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
