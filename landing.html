@@ -4,7 +4,32 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SAT Explore: A Space Odyssey — free story-driven SAT practice</title>
-<meta name="description" content="Wake on a derelict space station and escape by solving real SAT questions. All 48 SAT skills, 3 levels, solo or with friends. Free, no signup, plays in your browser." />
+<meta name="description" content="Wake on a derelict space station and escape by answering SAT questions. Practice the SAT's 29 skill areas across three levels — solo or with friends. Free, no signup, plays in your browser." />
+
+<!-- Open Graph / Twitter social cards -->
+<meta property="og:title" content="SAT Explore: A Space Odyssey" />
+<meta property="og:description" content="A story-driven way to practice for the SAT. Escape a dying space station by answering SAT questions — 29 skill areas, three levels, solo or with friends. Free, no signup." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://sat-explore-production.up.railway.app/" />
+<meta property="og:site_name" content="SAT Explore" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="SAT Explore: A Space Odyssey" />
+<meta name="twitter:description" content="Escape a dying space station by answering SAT questions. 29 skill areas, three levels, solo or with friends — free, no signup." />
+
+<!-- Analytics (PostHog) — same project as the game -->
+<script>
+  window.POSTHOG_KEY  = 'phc_o78ves5VLwLcz345hXgh4ARb3oA4bEe6xBGYY2MVNQsV';
+  window.POSTHOG_HOST = 'https://us.i.posthog.com';
+</script>
+<script>
+  if (window.POSTHOG_KEY) {
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getPageViewId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+    posthog.init(window.POSTHOG_KEY, { api_host: window.POSTHOG_HOST, person_profiles: 'identified_only' });
+  }
+  window.track = function (ev, props) {
+    try { if (window.posthog && window.POSTHOG_KEY) window.posthog.capture(ev, Object.assign({ app: 'sat-explore' }, props || {})); } catch (e) {}
+  };
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -94,7 +119,7 @@
   <header class="hero">
     <div class="logo">SAT&nbsp;EXPLORE</div>
     <div class="subtitle">A Space Odyssey</div>
-    <p class="tagline">You wake alone on a dying space station. The only way home is to fix its systems — by answering real SAT questions. Learn the whole test without it feeling like studying.</p>
+    <p class="tagline">You wake alone on a dying space station. The only way home is to fix its systems — by answering SAT questions. Learn the whole test without it feeling like studying.</p>
     <a class="cta" href="/play">▶ PLAY NOW — FREE</a>
     <span class="cta-note">No signup · plays in your browser · works on your phone</span>
 
@@ -105,7 +130,7 @@
 
   <h2 class="sec">◆ Why you'll actually want to play</h2>
   <div class="grid">
-    <div class="card"><div class="ic">🧠</div><h3>The whole SAT</h3><p>All 48 SAT skills — 11 Reading &amp; Writing and 37 Math — with 576 questions and real explanations for every answer.</p></div>
+    <div class="card"><div class="ic">🧠</div><h3>The whole SAT</h3><p>Covers the SAT's 29 skill areas — 15 in Reading &amp; Writing and 14 in Math — with a clear explanation on every question.</p></div>
     <div class="card"><div class="ic">🎚️</div><h3>Three levels</h3><p>Play at Foundation, Intermediate, or Advanced. Beat one, then decide whether to climb higher.</p></div>
     <div class="card"><div class="ic">🚀</div><h3>It's a game, not a worksheet</h3><p>Explore rooms, restore ship systems, and escape a derelict station — the practice is baked into the story.</p></div>
     <div class="card"><div class="ic">👥</div><h3>Play with friends</h3><p>Go solo, or start a multiplayer mission — race your friends or team up in co-op with a shared ship.</p></div>
@@ -129,8 +154,51 @@
 
 <footer>
   SAT Explore: A Space Odyssey &nbsp;·&nbsp; <span class="beta">open beta</span> &nbsp;·&nbsp; built for high-school SAT prep<br>
+  <a href="#" id="fb-open-foot" style="color:var(--blue);text-decoration:none;">💬 Send feedback or report a bug</a><br>
   Not affiliated with the College Board. "SAT" is a trademark of the College Board.
 </footer>
+
+<!-- Floating feedback button -->
+<button id="fb-open" style="position:fixed;bottom:16px;right:16px;z-index:50;background:rgba(0,212,255,.14);border:1px solid var(--blue);color:var(--blue);font-family:var(--mono);font-size:.8rem;padding:10px 16px;border-radius:24px;cursor:pointer;backdrop-filter:blur(4px);box-shadow:0 0 14px rgba(0,212,255,.3);">💬 Feedback</button>
+
+<!-- Feedback modal -->
+<div id="fb-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,3,12,.86);align-items:center;justify-content:center;padding:20px;">
+  <div style="width:min(460px,94vw);background:#0a0f2e;border:1px solid var(--border);border-radius:14px;padding:22px;font-family:var(--sans);">
+    <div style="font-family:var(--mono);color:var(--blue);letter-spacing:.08em;margin-bottom:6px;">💬 SEND FEEDBACK / REPORT A BUG</div>
+    <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:12px;line-height:1.5;">Tell us what's broken, confusing, or awesome. Thanks for helping test!</div>
+    <textarea id="fb-text" rows="5" placeholder="What happened? What would make it better?" style="width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);padding:10px 12px;font-size:.9rem;resize:vertical;"></textarea>
+    <input id="fb-email" type="email" placeholder="Email (optional — for a reply)" style="width:100%;margin-top:8px;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);padding:9px 12px;font-size:.85rem;" />
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;align-items:center;">
+      <span id="fb-thanks" style="display:none;color:var(--green);font-size:.85rem;margin-right:auto;">✓ Thanks — sent!</span>
+      <button id="fb-cancel" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:.8rem;padding:8px 16px;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="fb-send" style="background:var(--blue);border:none;color:#001018;font-family:var(--mono);font-weight:700;font-size:.8rem;padding:8px 20px;border-radius:8px;cursor:pointer;">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById('fb-modal');
+    const open = () => { modal.style.display = 'flex'; document.getElementById('fb-text').focus(); };
+    const close = () => { modal.style.display = 'none'; document.getElementById('fb-thanks').style.display = 'none'; };
+    document.getElementById('fb-open').onclick = open;
+    document.getElementById('fb-open-foot').onclick = (e) => { e.preventDefault(); open(); };
+    document.getElementById('fb-cancel').onclick = close;
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.getElementById('fb-send').onclick = () => {
+      const text = document.getElementById('fb-text').value.trim();
+      if (!text) { document.getElementById('fb-text').focus(); return; }
+      if (window.track) window.track('feedback_submitted', {
+        text: text.slice(0, 2000),
+        email: document.getElementById('fb-email').value.trim().slice(0, 120),
+        page: 'landing'
+      });
+      document.getElementById('fb-thanks').style.display = 'inline';
+      document.getElementById('fb-text').value = '';
+      setTimeout(close, 1200);
+    };
+  })();
+</script>
 
 <script>
   // lightweight starfield
