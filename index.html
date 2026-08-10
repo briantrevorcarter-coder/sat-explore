@@ -495,6 +495,48 @@ body {
 }
 #completion-screen.show { display: flex; }
 .complete-title { font-family: var(--font-mono); font-size: 1.8rem; color: var(--green); text-shadow: 0 0 20px var(--green); letter-spacing: .12em; }
+
+/* Level select */
+#level-select {
+  position: fixed; inset: 0; z-index: 240; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 32px 16px; text-align: center; overflow-y: auto;
+  background: rgba(0,3,12,.94); backdrop-filter: blur(4px);
+  font-family: var(--font-mono);
+}
+#level-select.show { display: flex; }
+.ls-title { color: var(--blue); font-size: 1.25rem; letter-spacing: .2em; text-shadow: 0 0 16px var(--blue); }
+.ls-sub { color: var(--text-dim); font-size: .8rem; max-width: 440px; line-height: 1.6; margin-bottom: 8px; }
+.lvl-choice {
+  width: min(360px, 90vw); background: rgba(0,20,40,.7);
+  border: 1.5px solid var(--border); border-radius: 12px;
+  padding: 16px 20px; cursor: pointer; color: var(--text);
+  font-family: var(--font-mono); display: flex; align-items: center; gap: 14px; text-align: left;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.lvl-choice:hover { border-color: var(--blue); background: rgba(0,60,110,.55); transform: translateY(-1px); }
+.lvl-emoji { font-size: 1.7rem; }
+.lvl-name { font-size: 1.05rem; letter-spacing: .12em; color: var(--blue); flex: 1; }
+.lvl-desc { display: block; font-size: .66rem; color: var(--text-dim); letter-spacing: .04em; margin-top: 3px; }
+.lvl-choice .lvl-name { display: flex; flex-direction: column; }
+
+/* Multiplayer lobby level picker */
+.mp-lvl {
+  flex: 1; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .03em;
+  padding: 7px 3px; border: 1px solid var(--border); border-radius: 6px;
+  background: rgba(0,0,0,.3); color: var(--text-dim); cursor: pointer; transition: all .12s;
+}
+.mp-lvl:hover { border-color: var(--blue-dim); color: var(--text); }
+.mp-lvl.sel { border-color: var(--amber); color: var(--amber); background: rgba(255,170,0,.1); }
+
+/* Level complete (non-hero) */
+#level-complete {
+  position: fixed; inset: 0; z-index: 300; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 32px 16px; text-align: center; overflow-y: auto;
+  background: var(--bg); font-family: var(--font-sans);
+}
+#level-complete.show { display: flex; }
 .score-big { font-family: var(--font-mono); font-size: 3rem; color: var(--blue); text-shadow: 0 0 20px var(--blue); }
 .skills-used { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; text-align: left; max-width: 480px; width: 100%; }
 .skills-used h3 { font-family: var(--font-mono); font-size: .8rem; color: var(--amber); margin-bottom: 10px; letter-spacing: .1em; }
@@ -570,6 +612,14 @@ body {
       <button class="btn" id="mp-copy-code" style="font-size:.65rem;padding:5px 14px;margin-bottom:10px;">⧉ COPY CODE</button>
       <div id="mp-lobby-mode" style="font-size:.68rem;color:var(--text-dim);margin-bottom:10px;"></div>
       <div id="mp-lobby-players" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+      <div id="mp-level-pick" style="display:none;margin-bottom:12px;">
+        <div style="font-size:.62rem;color:var(--text-dim);letter-spacing:.08em;margin-bottom:6px;">HOST — CHOOSE LEVEL FOR THE CREW</div>
+        <div style="display:flex;gap:6px;">
+          <button class="mp-lvl" data-level="0">FOUNDATION</button>
+          <button class="mp-lvl" data-level="1">INTERMEDIATE</button>
+          <button class="mp-lvl" data-level="2">ADVANCED</button>
+        </div>
+      </div>
       <button class="btn primary" id="mp-launch" style="width:100%;display:none;">🚀 LAUNCH FOR ALL</button>
       <div id="mp-wait" style="font-size:.68rem;color:var(--text-dim);">Waiting for the host to launch…</div>
     </div>
@@ -622,8 +672,9 @@ body {
 
 <!-- COMPLETION SCREEN -->
 <div id="completion-screen">
-  <div class="complete-title">◈ MISSION COMPLETE ◈</div>
-  <div style="font-family:var(--font-mono);font-size:.9rem;color:var(--text-dim)">Dr. Reyes escapes on the emergency pod. The data is safe. The truth will be known.</div>
+  <div style="font-size:3.4rem;line-height:1;">🏆</div>
+  <div class="complete-title" id="complete-title">◈ ADVANCED TIER MASTERED ◈</div>
+  <div style="font-family:var(--font-mono);font-size:.9rem;color:var(--text-dim);max-width:520px;line-height:1.6;">Dr. Reyes escapes Axiom-7 on the hardest setting. You've faced every skill the SAT can throw at you — and cleared them. You're SAT-ready, Commander.</div>
   <div>
     <div style="font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim);margin-bottom:4px">FINAL SCORE</div>
     <div class="score-big"><span id="final-score">0</span> / <span id="final-total">0</span></div>
@@ -641,8 +692,20 @@ body {
     <div class="skill-row">Geometry &amp; Trigonometry (8 skills) — Navigation</div>
   </div>
   <button class="btn" onclick="toggleSkillMatrix()">⌗ VIEW SKILL MATRIX</button>
-  <button class="btn primary" onclick="restartGame()" style="font-size:.9rem;padding:12px 28px">⟳ PLAY AGAIN</button>
+  <button class="btn primary" onclick="backToLevelSelect()" style="font-size:.9rem;padding:12px 28px">↩ LEVEL SELECT</button>
 </div>
+
+<!-- LEVEL SELECT -->
+<div id="level-select">
+  <div class="ls-title">SELECT YOUR LEVEL</div>
+  <div class="ls-sub">Choose the difficulty to escape Axiom-7. Clear a level to celebrate — then decide whether to climb higher.</div>
+  <button class="lvl-choice" data-level="0"><span class="lvl-emoji">🌍</span><span class="lvl-name">FOUNDATION</span><span class="lvl-desc">Core skills · gentlest questions</span></button>
+  <button class="lvl-choice" data-level="1"><span class="lvl-emoji">🚀</span><span class="lvl-name">INTERMEDIATE</span><span class="lvl-desc">Tougher · exam-level questions</span></button>
+  <button class="lvl-choice" data-level="2"><span class="lvl-emoji">⭐</span><span class="lvl-name">ADVANCED</span><span class="lvl-desc">Hardest questions · for mastery</span></button>
+</div>
+
+<!-- LEVEL COMPLETE (Foundation / Intermediate) -->
+<div id="level-complete"></div>
 
 <!-- TRANSITION -->
 <div id="transition">
@@ -1723,11 +1786,78 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', unlockOnGesture, true);
 });
 
-function startGame() {
+// ── LEVEL FLOW (player picks the level; beat it to advance/replay/menu) ──
+function resetForLevel(level) {
+  cycle = Math.max(0, Math.min(2, level | 0));
+  roomDone.fill(false);
+  roomVariant = new Array(9).fill(0);
+  strikes = 0; currentRoom = -1; nearRoom = -1;
+  seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set();
+  score = 0; totalQ = 0;
+  player.x = 240; player.y = 450;
+}
+
+function gradeMsg(pct) {
+  if (pct >= 90) return 'OUTSTANDING — mission specialist tier.';
+  if (pct >= 80) return 'CLEARED — solid command of these skills.';
+  if (pct >= 60) return 'Good effort — a few areas to review.';
+  return 'Keep practicing, pilot.';
+}
+
+// Show the level-select menu (from the title screen OR mid-game).
+function showLevelSelect() {
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('challenge-overlay').classList.remove('show');
+  document.getElementById('level-complete').classList.remove('show');
+  document.getElementById('completion-screen').classList.remove('show');
+  document.getElementById('level-select').classList.add('show');
+}
+function backToLevelSelect() { showLevelSelect(); }
+
+// A level was chosen — start playing it. From the title we do the cinematic
+// fade (startGame); mid-game we just reset and drop back into exploration.
+function launchLevel(level) {
+  document.getElementById('level-select').classList.remove('show');
+  tryUnlockAudio();
+  if (!gameStarted) { startGame(level); return; }
+  resetForLevel(level);
+  document.getElementById('challenge-overlay').classList.remove('show');
+  document.getElementById('level-complete').classList.remove('show');
+  document.getElementById('completion-screen').classList.remove('show');
+  challengeActive = false;
+  updateHUD();
+  if (!animFrame) { lastTime = performance.now(); animFrame = requestAnimationFrame(drawFrame); }
+}
+
+// Congratulations screen after clearing Foundation or Intermediate.
+function showLevelComplete() {
+  const beaten = cycle;
+  const pct = totalQ > 0 ? Math.round(score / totalQ * 100) : 0;
+  track('level_beaten', { level: CYCLE_NAMES[beaten], cycle: beaten + 1, score, total: totalQ, pct });
+  const next = CYCLE_NAMES[beaten + 1];
+  const ov = document.getElementById('level-complete');
+  ov.innerHTML =
+    '<div class="complete-title">◈ ' + CYCLE_NAMES[beaten] + ' CLEARED ◈</div>' +
+    '<div style="font-family:var(--font-mono);font-size:.9rem;color:var(--text-dim);max-width:480px;line-height:1.6;">' +
+      'You escaped Axiom-7 at the ' + CYCLE_NAMES[beaten] + ' tier. Ready for a harder escape?</div>' +
+    '<div><div style="font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim);margin-bottom:4px;">SCORE</div>' +
+      '<div class="score-big">' + score + ' / ' + totalQ + '</div></div>' +
+    '<div style="font-family:var(--font-mono);font-size:.95rem;color:var(--green);">' + pct + '% — ' + gradeMsg(pct) + '</div>' +
+    '<button class="btn primary" id="lc-advance" style="font-size:.95rem;padding:13px 30px;">▶ ADVANCE TO ' + next.toUpperCase() + '</button>' +
+    '<button class="btn" id="lc-replay">⟳ REPLAY ' + CYCLE_NAMES[beaten].toUpperCase() + '</button>' +
+    '<button class="btn" id="lc-menu">↩ LEVEL SELECT</button>';
+  ov.classList.add('show');
+  ov.querySelector('#lc-advance').onclick = () => launchLevel(beaten + 1);
+  ov.querySelector('#lc-replay').onclick = () => launchLevel(beaten);
+  ov.querySelector('#lc-menu').onclick = backToLevelSelect;
+}
+
+function startGame(level) {
   // Ensure audio is running
   tryUnlockAudio();
 
-  track('game_started', { multiplayer: !!mp, mode: mp ? mp.mode : 'solo', cycle: cycle + 1 });
+  if (typeof level === 'number') cycle = level;
+  track('game_started', { multiplayer: !!mp, mode: mp ? mp.mode : 'solo', level: CYCLE_NAMES[cycle], cycle: cycle + 1 });
 
   // Cancel title canvas animation
   if (titleAnimFrame) { cancelAnimationFrame(titleAnimFrame); titleAnimFrame = null; }
@@ -1762,15 +1892,13 @@ function startGame() {
     document.getElementById('game-hud').style.transition = 'opacity 1s ease';
 
     gameStarted = true;
-    // DEV fast-forward: ?cycle=1 or ?cycle=2 starts at that tier so the
-    // later-cycle behavior can be reached without replaying everything.
-    // ?room=N (with ?cycle) marks the earlier rooms of that cycle cleared.
+    // Start at the chosen level (0=Foundation,1=Intermediate,2=Advanced).
+    resetForLevel(typeof level === 'number' ? level : 0);
+    // DEV fast-forward: ?cycle / ?room override the chosen level for testing.
     try {
       const p = new URLSearchParams(location.search);
       const startCycle = parseInt(p.get('cycle'), 10);
-      if (!isNaN(startCycle) && startCycle >= 0 && startCycle <= 2) {
-        cycle = startCycle; seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set();
-      }
+      if (!isNaN(startCycle) && startCycle >= 0 && startCycle <= 2) cycle = startCycle;
       const startRoom = parseInt(p.get('room'), 10);
       if (!isNaN(startRoom) && startRoom > 0 && startRoom < 9) {
         for (let r = 0; r < startRoom; r++) roomDone[r] = true;
@@ -1839,45 +1967,31 @@ function nextRoom() {
   playSuccess();
 
   if (currentRoom >= 8) {
-    if (cycle < 2) {
-      // New Game+ : the escape fails and the station drags you back,
-      // deeper systems failing — every room replays at the next tier.
-      const nextCycleTexts = [
-        "THE POD DETACHES — then shudders. ARIA's voice crackles: \"Trajectory rejected. Guidance was a decoy.\" A tractor field hauls you back into the dark hangar. The station isn't done with you — and this time, its systems are failing at a deeper layer.",
-        "SECOND LAUNCH — the pod clears the hangar... and the stars bend. A recall loop snaps you back to the cryo deck. One escape remains, and the station's final systems demand everything you know.",
-      ];
+    track('cycle_completed', { tier: CYCLE_NAMES[cycle], cycle: cycle + 1 });
+    const finish = () => {
+      stopChallengeMusic(); stopExplorationMusic(); playVictory(); challengeActive = false;
+    };
+    // Multiplayer: clearing the chosen level = the win; server drives the
+    // crew/race result screens on top of this.
+    if (mp && mp.started) {
       showTransition(
-        nextCycleTexts[cycle],
-        `ESCAPE CYCLE ${cycle + 2} — ${CYCLE_NAMES[cycle + 1]} TIER`,
-        () => {
-          track('cycle_completed', { tier: CYCLE_NAMES[cycle], cycle: cycle + 1 });
-          cycle++;
-          roomDone.fill(false);
-          strikes = 0;
-          levelVariant = [0, 0, 0, 0];
-          roomVariant = new Array(9).fill(0);
-          seenThisCycle = new Set(); coveredThisCycle = new Set(); missedThisCycle = new Set(); // fresh trackers for the new tier
-          currentRoom = -1;
-          challengeActive = false;
-          player.x = 240; player.y = 450;
-          updateHUD();
-          mpSendProgress();
-        },
-        5200
+        'LAUNCH — the pod tears free of Axiom-7. You cleared the ' + CYCLE_NAMES[cycle] + ' tier!',
+        CYCLE_NAMES[cycle] + ' TIER CLEARED',
+        () => { finish(); showCompletion(); },
+        3600
       );
       return;
     }
+    // Solo: Advanced → hero screen; otherwise the level-complete choice screen.
     showTransition(
-      "THIRD LAUNCH — the recall loop is severed. The pod tears free of Axiom-7 for good. Through the viewport, the station finally grows smaller. You mastered every system it threw at you. You made it.",
-      "Mission accomplished — all three tiers cleared.",
+      'LAUNCH — the pod tears free of Axiom-7. You cleared the ' + CYCLE_NAMES[cycle] + ' tier!',
+      cycle >= 2 ? 'ADVANCED TIER MASTERED' : CYCLE_NAMES[cycle] + ' TIER CLEARED',
       () => {
-        stopChallengeMusic();
-        stopExplorationMusic();
-        playVictory();
-        challengeActive = false;
-        showCompletion();
+        finish();
+        if (cycle >= 2) showCompletion(); // hero / celebration
+        else showLevelComplete();          // congrats + advance/replay/menu
       },
-      3800
+      3600
     );
     return;
   }
@@ -1908,8 +2022,10 @@ function nextRoom() {
 
 function showCompletion() {
   mpSendProgress(true);
-  track('game_completed', { score, total: totalQ,
+  track('game_completed', { level: CYCLE_NAMES[cycle], score, total: totalQ,
     pct: totalQ > 0 ? Math.round(score / totalQ * 100) : 0, multiplayer: !!mp });
+  document.getElementById('complete-title').textContent =
+    cycle >= 2 ? '◈ ADVANCED TIER MASTERED ◈' : '◈ ' + CYCLE_NAMES[cycle] + ' TIER CLEARED ◈';
   document.getElementById('completion-screen').classList.add('show');
   document.getElementById('final-score').textContent = score;
   document.getElementById('final-total').textContent = totalQ;
@@ -4060,6 +4176,7 @@ function toggleSkillMatrix() {
 //  current level. The crew wins when every member launches.
 // ══════════════════════════════════════════════════════════════
 let mpMode = 'compete';
+let mpLevel = 0; // host-chosen difficulty (0=Foundation,1=Intermediate,2=Advanced)
 
 // Distinct pilot colors, indexed by the server-assigned color slot.
 const PLAYER_COLORS = ['#00d4ff','#ffcc00','#00ff88','#ff5c7a','#c084fc','#ff8c42','#5eead4','#f472b6'];
@@ -4197,11 +4314,12 @@ function mpHandle(m) {
       mp.started = true;
       document.getElementById('mp-panel').style.display = 'none';
       document.getElementById('mp-lobby').style.display = 'none';
+      document.getElementById('level-select').classList.remove('show');
       document.getElementById('crew-panel').style.display = 'block';
       document.getElementById('crew-title').textContent =
         mp.mode === 'coop' ? '🤝 CREW — SHARED INTEGRITY' : '🏁 RACE STANDINGS';
       document.getElementById('crew-code').textContent = mp.code;
-      startGame();
+      startGame(m.level | 0);   // host-chosen level for the whole crew
       mpSendProgress();
       break;
     case 'players':
@@ -4258,7 +4376,11 @@ function renderLobby() {
   }
   const isHost = mp.me === mp.host;
   document.getElementById('mp-launch').style.display = isHost ? 'block' : 'none';
+  document.getElementById('mp-level-pick').style.display = isHost ? 'block' : 'none';
   document.getElementById('mp-wait').style.display = isHost ? 'none' : 'block';
+  // reflect the current level selection
+  document.querySelectorAll('#mp-level-pick .mp-lvl').forEach(b =>
+    b.classList.toggle('sel', parseInt(b.dataset.level, 10) === mpLevel));
 }
 
 function renderCrew(players) {
@@ -4310,7 +4432,13 @@ document.getElementById('mp-join').addEventListener('click', () => {
   const ws = mpConnect(() => mpSend({ t: 'join', name, code }));
   if (ws) mp = { ws };
 });
-document.getElementById('mp-launch').addEventListener('click', () => mpSend({ t: 'startGame' }));
+document.querySelectorAll('#mp-level-pick .mp-lvl').forEach(btn => {
+  btn.addEventListener('click', () => {
+    mpLevel = parseInt(btn.dataset.level, 10);
+    document.querySelectorAll('#mp-level-pick .mp-lvl').forEach(b => b.classList.toggle('sel', b === btn));
+  });
+});
+document.getElementById('mp-launch').addEventListener('click', () => mpSend({ t: 'startGame', level: mpLevel }));
 
 function copyCode(btn) {
   if (!mp || !mp.code) return;
@@ -4339,7 +4467,11 @@ window.addEventListener('orientationchange', onViewportChange);
 // without always firing 'resize' — keep the canvas in sync.
 if (window.visualViewport) window.visualViewport.addEventListener('resize', onViewportChange);
 
-document.getElementById('start-btn').addEventListener('click', () => { tryUnlockAudio(); startGame(); });
+document.getElementById('start-btn').addEventListener('click', () => { tryUnlockAudio(); showLevelSelect(); });
+// Level-select buttons
+document.querySelectorAll('#level-select .lvl-choice').forEach(btn => {
+  btn.addEventListener('click', () => launchLevel(parseInt(btn.dataset.level, 10)));
+});
 // Clicking anywhere on title screen unlocks audio
 document.getElementById('intro-screen').addEventListener('click', tryUnlockAudio);
 

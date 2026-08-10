@@ -84,8 +84,8 @@ wss.on('connection', ws => {
           host: room.host, started: room.started,
           players: [...room.players.values()].map(p => ({ id: p.id, name: p.name, color: p.color })) }));
         if (room.started) {
-          // Late join: drop the new pilot straight into the mission.
-          ws.send(JSON.stringify({ t: 'start' }));
+          // Late join: drop the new pilot straight into the mission at the level the host chose.
+          ws.send(JSON.stringify({ t: 'start', level: room.level | 0 }));
           if (room.mode === 'coop') ws.send(JSON.stringify({ t: 'strikes', n: room.sharedStrikes }));
           broadcast(room, playersMsg(room));
         } else {
@@ -96,7 +96,8 @@ wss.on('connection', ws => {
       case 'startGame': {
         if (!room || player.id !== room.host || room.started) return;
         room.started = true;
-        broadcast(room, { t: 'start' });
+        room.level = Math.max(0, Math.min(2, m.level | 0)); // host-chosen difficulty
+        broadcast(room, { t: 'start', level: room.level });
         broadcast(room, playersMsg(room));
         break;
       }
