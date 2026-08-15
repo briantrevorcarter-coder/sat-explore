@@ -30,10 +30,11 @@
       person_profiles: 'identified_only',
       disable_session_recording: false,
       session_recording: {
-        // The station map is drawn on a <canvas>; without canvas capture the
-        // replay shows a blank box where the game is. Low fps/quality keeps
-        // the recording small.
-        captureCanvas: { recordCanvas: true, canvasFps: 4, canvasQuality: '0.6' },
+        // Canvas capture is off: the station map didn't render in the replay
+        // player, so those frames were pure upload cost. Everything that
+        // matters for research — passages, answer choices, the timer, which
+        // option is picked — is DOM and replays fine.
+        captureCanvas: { recordCanvas: false },
         // Show typed math answers (useful for research), but never the
         // feedback email field (masked via .ph-no-capture below).
         maskAllInputs: false,
