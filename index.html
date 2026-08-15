@@ -1882,6 +1882,7 @@ function gradeMsg(pct) {
 
 // Show the level-select menu (from the title screen OR mid-game).
 function showLevelSelect() {
+  track('level_select_shown', { fromGame: !!gameStarted });
   document.getElementById('intro-screen').style.display = 'none';
   document.getElementById('challenge-overlay').classList.remove('show');
   document.getElementById('level-complete').classList.remove('show');
@@ -1893,6 +1894,7 @@ function backToLevelSelect() { showLevelSelect(); }
 // A level was chosen — start playing it. From the title we do the cinematic
 // fade (startGame); mid-game we just reset and drop back into exploration.
 function launchLevel(level) {
+  track('level_selected', { level: CYCLE_NAMES[Math.max(0, Math.min(2, level | 0))] });
   document.getElementById('level-select').classList.remove('show');
   tryUnlockAudio();
   if (!gameStarted) { startGame(level); return; }
@@ -4004,10 +4006,16 @@ const ROOM_STORIES = [
 let mastery = {};
 try { mastery = JSON.parse(localStorage.getItem('axiom7_mastery') || '{}'); } catch (e) {}
 function saveMastery() { try { localStorage.setItem('axiom7_mastery', JSON.stringify(mastery)); } catch (e) {} }
-function markMastery(q, correct) {
+function markMastery(q, correct, meta) {
   // The richest signal: every question attempt, tagged by skill/domain/tier.
+  // timed_out + seconds_used let us tell "ran out of time" from "answered
+  // wrong", and show how close students run to the SAT pace limit.
+  const limit = secondsFor(q);
+  const used = qStartedAt ? Math.min(limit, Math.round((Date.now() - qStartedAt) / 1000)) : null;
   track('question_answered', { skill: q.skill, name: q.name, domain: q.domain,
-    tier: q.tier, cycle: cycle + 1, room: currentRoom, type: q.type, correct: !!correct });
+    tier: q.tier, cycle: cycle + 1, room: currentRoom, type: q.type, correct: !!correct,
+    timed_out: !!(meta && meta.timedOut), seconds_used: used, time_limit: limit,
+    section: isMathQ(q) ? 'math' : 'rw' });
   seenThisCycle.add(qid(q));
   coveredThisCycle.add(q.skill);          // skill was shown this cycle
   if (!correct) missedThisCycle.add(q.skill); // skill was missed this cycle
@@ -4038,6 +4046,7 @@ const LAUNCH_RW = 10;
 const RW_SECONDS = 71;
 const MATH_SECONDS = 95;
 let qTimer = null;
+let qStartedAt = 0;   // when the current question was shown (for seconds_used)
 function isMathQ(q) { return !!(q && q.domain && q.domain.indexOf('m-') === 0); }
 function secondsFor(q) { return isMathQ(q) ? MATH_SECONDS : RW_SECONDS; }
 function timerNoteFor(q) {
@@ -4051,6 +4060,7 @@ function clearQTimer() { if (qTimer) { clearInterval(qTimer); qTimer = null; } }
 // Calls onExpire() once at zero. Self-cancels if the room restarts.
 function startQuestionTimer(q, myToken, onExpire) {
   clearQTimer();
+  qStartedAt = Date.now();
   const total = secondsFor(q);
   let left = total;
   const clock = document.getElementById('q-clock');
@@ -4236,7 +4246,7 @@ function showSkillQuestion(idx, qs, i) {
       if (busy) return;
       busy = true;
       clearQTimer();
-      markMastery(q, correct);
+      markMastery(q, correct, { timedOut: timedOut });
       recordAnswer(correct);
       inp.disabled = true; btn.disabled = true;
       inp.className = 'answer-input ' + (correct ? 'correct' : 'wrong');
@@ -4274,7 +4284,7 @@ function showSkillQuestion(idx, qs, i) {
       const btns = opts.querySelectorAll('.opt');
       btns.forEach(b => { b.disabled = true; b.style.pointerEvents = 'none'; });
       if (btns[q.ans]) btns[q.ans].classList.add('correct');
-      markMastery(q, false);
+      markMastery(q, false, { timedOut: true });
       recordAnswer(false);
       playFailure();
       showFeedback(fb, false);
@@ -4648,7 +4658,7 @@ function openFeedback() { const m = document.getElementById('fb-modal'); m.style
   };
 })();
 
-document.getElementById('start-btn').addEventListener('click', () => { tryUnlockAudio(); showLevelSelect(); });
+document.getElementById('start-btn').addEventListener('click', () => { track('begin_mission_clicked'); tryUnlockAudio(); showLevelSelect(); });
 // Level-select buttons
 document.querySelectorAll('#level-select .lvl-choice').forEach(btn => {
   btn.addEventListener('click', () => launchLevel(parseInt(btn.dataset.level, 10)));
