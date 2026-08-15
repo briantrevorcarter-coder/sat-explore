@@ -491,6 +491,21 @@ body {
 .feedback.bad { border: 1px solid var(--red); background: rgba(255,68,102,.08); color: var(--red); }
 .sub-progress { font-family: var(--font-mono); font-size: .7rem; color: var(--text-dim); }
 
+/* Per-question countdown timer (real SAT pacing) */
+.timer-row { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; flex-wrap: wrap; }
+.timer-clock {
+  font-family: var(--font-mono); font-size: 1.02rem; font-weight: bold;
+  padding: 3px 13px; border-radius: 20px; border: 2px solid; min-width: 62px; text-align: center;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.timer-clock.green  { color: var(--green); border-color: var(--green); background: rgba(0,255,136,.08); }
+.timer-clock.yellow { color: var(--amber); border-color: var(--amber); background: rgba(255,170,0,.12); }
+.timer-clock.red    { color: var(--red);   border-color: var(--red);   background: rgba(255,68,102,.14); animation: t-pulse .8s ease-in-out infinite; }
+@keyframes t-pulse { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+.timer-note { font-family: var(--font-mono); font-size: .62rem; color: var(--text-dim); line-height: 1.4; flex: 1; min-width: 150px; }
+.timer-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; width: 100%; margin: 2px 0 4px; }
+.timer-fill { height: 100%; width: 100%; background: var(--green); transition: width 1s linear, background .2s; }
+
 /* 80% pass gate — strike circles + caption + warning */
 .strike-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 2px; flex-wrap: wrap; }
 .strike-dots { display: inline-flex; gap: 7px; }
@@ -1997,12 +2012,14 @@ function getActLabel(idx) {
 }
 
 function leaveRoom() {
+  clearQTimer();
   challengeActive = false;
   document.getElementById('challenge-overlay').classList.remove('show');
   transitionToExploration();
 }
 
 function nextRoom() {
+  clearQTimer();
   roomDone[currentRoom] = true;
   track('room_completed', { room: currentRoom, domain: ROOM_DOMAINS[currentRoom], cycle: cycle + 1 });
   // A cleared level wipes the slate: strikes reset at each level boundary.
@@ -3074,6 +3091,7 @@ function recordAnswer(correct) {
 // Too many misses in one room: only THAT room re-locks and reloads with a
 // fresh question set. Everything you've already cleared stays cleared.
 function roomFailure() {
+  clearQTimer();
   const idx = currentRoom;
   track('room_restarted', { room: idx, domain: ROOM_DOMAINS[idx], cycle: cycle + 1, missLimit: currentLimit });
   roomToken++;             // invalidate any pending question callbacks
@@ -3098,6 +3116,7 @@ function roomFailure() {
 // ENTIRE level (this whole cycle): every room re-locks and you begin again at
 // the first room, with fresh question subsets.
 function launchFailure() {
+  clearQTimer();
   track('level_restarted', { cycle: cycle + 1 });
   roomToken++;                 // invalidate any pending question callbacks
   strikes = 0;
@@ -3998,6 +4017,51 @@ const ROOM_SIZE = 5;
 const LAUNCH_MATH = 10;
 const LAUNCH_RW = 10;
 
+// ── PER-QUESTION TIMER (mirrors real SAT pacing) ──
+// R&W: 27 questions / 32 min ≈ 71s each. Math: 22 questions / 35 min ≈ 95s each.
+// Running out of time counts as a wrong answer, exactly like a wrong submission.
+const RW_SECONDS = 71;
+const MATH_SECONDS = 95;
+let qTimer = null;
+function isMathQ(q) { return !!(q && q.domain && q.domain.indexOf('m-') === 0); }
+function secondsFor(q) { return isMathQ(q) ? MATH_SECONDS : RW_SECONDS; }
+function timerNoteFor(q) {
+  return isMathQ(q)
+    ? 'SAT pace: 22 math questions in 35 min ≈ 95s each'
+    : 'SAT pace: 27 R&W questions in 32 min ≈ 71s each';
+}
+function clearQTimer() { if (qTimer) { clearInterval(qTimer); qTimer = null; } }
+
+// Counts down the current question. Green → yellow at 20s → red at 10s.
+// Calls onExpire() once at zero. Self-cancels if the room restarts.
+function startQuestionTimer(q, myToken, onExpire) {
+  clearQTimer();
+  const total = secondsFor(q);
+  let left = total;
+  const clock = document.getElementById('q-clock');
+  const fill = document.getElementById('q-fill');
+  function paint() {
+    const state = left <= 10 ? 'red' : left <= 20 ? 'yellow' : 'green';
+    if (clock) {
+      clock.textContent = left >= 60
+        ? Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0')
+        : left + 's';
+      clock.className = 'timer-clock ' + state;
+    }
+    if (fill) {
+      fill.style.width = Math.max(0, (left / total) * 100) + '%';
+      fill.style.background = state === 'red' ? 'var(--red)' : state === 'yellow' ? 'var(--amber)' : 'var(--green)';
+    }
+  }
+  paint();
+  qTimer = setInterval(function () {
+    if (myToken !== roomToken) { clearQTimer(); return; }   // room restarted
+    left--;
+    if (left <= 0) { left = 0; paint(); clearQTimer(); onExpire(); return; }
+    paint();
+  }, 1000);
+}
+
 // How many variants exist for a domain at a given tier (A/B/C/D = up to 4).
 // Computed from the bank so adding more variants later needs no code change.
 function variantsAvailable(dom, tier) {
@@ -4126,10 +4190,21 @@ function showSkillQuestion(idx, qs, i) {
   const warn = el('div','strike-warn'); warn.id = 'strike-warn'; warn.style.display = 'none';
   cb.appendChild(warn);
 
+  // Countdown timer + why-it-exists note
+  const tRow = el('div','timer-row');
+  const clock = el('div','timer-clock green'); clock.id = 'q-clock'; clock.textContent = secondsFor(q) + 's';
+  const tNote = el('div','timer-note', '⏱ ' + timerNoteFor(q));
+  tRow.appendChild(clock); tRow.appendChild(tNote);
+  cb.appendChild(tRow);
+  const tBar = el('div','timer-bar');
+  const tFill = el('div','timer-fill'); tFill.id = 'q-fill';
+  tBar.appendChild(tFill); cb.appendChild(tBar);
+
   if (q.passage) { const p = el('div','passage'); p.innerHTML = q.passage; cb.appendChild(p); }
   const qEl = el('div','challenge-q'); qEl.innerHTML = q.q; cb.appendChild(qEl);
 
   const proceed = () => {
+    clearQTimer();
     if (myToken !== roomToken) return; // room was restarted — abandon stale flow
     if (i < qs.length - 1) showSkillQuestion(idx, qs, i + 1);
     else addContinueBtn(cb, idx === 8 ? '▶ LAUNCH' : '▶ SYSTEM RESTORED — CONTINUE', nextRoom);
@@ -4142,32 +4217,56 @@ function showSkillQuestion(idx, qs, i) {
     const fb = el('div','feedback');
     row.appendChild(inp); row.appendChild(btn); cb.appendChild(row); cb.appendChild(fb);
     let busy = false;
-    function attempt() {
+    function settle(correct, timedOut) {
       if (busy) return;
-      const val = parseFloat(inp.value);
-      if (isNaN(val)) return;
-      const correct = val === q.ans;
+      busy = true;
+      clearQTimer();
       markMastery(q, correct);
       recordAnswer(correct);
-      busy = true;
       inp.disabled = true; btn.disabled = true;
       inp.className = 'answer-input ' + (correct ? 'correct' : 'wrong');
-      fb.textContent = correct ? q.good : q.bad;
+      fb.textContent = (timedOut ? '⏱ Time’s up. ' : '') + (correct ? q.good : q.bad);
       fb.className = 'feedback show ' + (correct ? 'good' : 'bad');
       if (correct) playSuccess(); else playFailure();
       // One attempt only — a miss moves on to the next question (no retry).
       setTimeout(proceed, correct ? 1800 : 3400);
     }
+    function attempt() {
+      if (busy) return;
+      const val = parseFloat(inp.value);
+      if (isNaN(val)) return;
+      settle(val === q.ans, false);
+    }
     btn.onclick = attempt;
     inp.onkeydown = e => { if (e.key === 'Enter') attempt(); };
+    startQuestionTimer(q, myToken, () => settle(false, true)); // out of time = wrong
   } else {
+    let settled = false;
     const fb = buildFeedback(q.good, q.bad);
     const opts = buildOptions(q.opts, q.ans, correct => {
+      if (settled) return;
+      settled = true;
+      clearQTimer();
       markMastery(q, correct);
       showFeedback(fb, correct); cb.appendChild(fb);
       setTimeout(proceed, correct ? 1800 : 3400);
     });
     cb.appendChild(opts);
+    // Out of time = wrong: lock the choices, reveal the answer, move on.
+    startQuestionTimer(q, myToken, () => {
+      if (settled) return;
+      settled = true;
+      const btns = opts.querySelectorAll('.opt');
+      btns.forEach(b => { b.disabled = true; b.style.pointerEvents = 'none'; });
+      if (btns[q.ans]) btns[q.ans].classList.add('correct');
+      markMastery(q, false);
+      recordAnswer(false);
+      playFailure();
+      showFeedback(fb, false);
+      fb.textContent = '⏱ Time’s up. ' + q.bad;
+      cb.appendChild(fb);
+      setTimeout(proceed, 3400);
+    });
   }
 }
 
